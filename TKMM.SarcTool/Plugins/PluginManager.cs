@@ -15,8 +15,7 @@ public class PluginManager : IPluginManager {
     private bool loaded = false;
 
     public PluginManager() {
-        applicationDirectory = Path.GetDirectoryName((Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly()).Location)
-                               ?? throw new Exception("Plugin path not found");
+        applicationDirectory = AppDomain.CurrentDomain.BaseDirectory;
     }
 
     internal void LoadPlugins(IServiceCollection services) {
