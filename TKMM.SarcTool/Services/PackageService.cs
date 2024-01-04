@@ -75,7 +75,7 @@ internal class PackageService {
                 var result = HandleArchive(filePath, pathRelativeToBase);
 
                 if (result.Length == 0) {
-                    AnsiConsole.MarkupLineInterpolated($"! [yellow]Omitting {modPath} because file is same as vanilla[/]");
+                    AnsiConsole.MarkupLineInterpolated($"! [yellow]Omitting {modPath} because file is same as vanilla or no changes made[/]");
                     continue;
                 }
                 
@@ -139,9 +139,9 @@ internal class PackageService {
             }
         }
         
-        // Nothing to remove? Send back the original file
+        // Nothing to remove? We can skip it
         if (toRemove.Count == 0)
-            return fileContents;
+            return Span<byte>.Empty;
         
         // Removals
         foreach (var entry in toRemove)
