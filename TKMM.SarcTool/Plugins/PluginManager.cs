@@ -33,7 +33,7 @@ public class PluginManager : IPluginManager {
 
         foreach (var file in pluginAssemblies) {
             // Only init assemblies that have the filename in the format TKMM.SarcTool.Plugin.xxxx.dll
-            if (!Path.GetFileName(file).ToLower().StartsWith("tcml.sarctool.plugin."))
+            if (!Path.GetFileName(file).ToLower().StartsWith("tkmm.sarctool.plugin."))
                 continue;
 
             try {
