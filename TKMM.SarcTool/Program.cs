@@ -210,7 +210,7 @@ public static class Program {
         
         AnsiConsole.Write(new FigletText("SARC Tool"));
         AnsiConsole.MarkupInterpolated(
-            $"[bold]TKMM SARC Tool v. {version}\nCopyright (c) @mikachan & contributors\nLicensed under the GPL (see LICENSE.TXT)\nhttps://github.com/||||[/]\n\n");
+            $"[bold]TKMM SARC Tool v. {version}\nCopyright (c) @mikachan & contributors\nhttps://github.com/okmika/TKMM-SARC[/]\n\n");
         
     }
 
