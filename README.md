@@ -49,7 +49,7 @@ Options:
 ```
 
 ### For merging archives
-`SarcTool.exe package --mods [modlist] --base [base] --output [output]`
+`SarcTool.exe merge --mods [modlist] --base [base] --output [output]`
 
 - `base`: The path to the folder that holds all of your mods
 - `modlist`: A list of mod folders inside of `base` to merge together, listed in priority (mods listed first have higher priority).
