@@ -8,8 +8,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TKMM.SarcTool.Plugin.Byml",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SarcLibrary", "lib\SarcLibrary\src\SarcLibrary\SarcLibrary.csproj", "{258EBCDF-2FC3-46E7-BE61-6C19C72FA008}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BymlLibrary", "lib\BymlLibrary\src\BymlLibrary.csproj", "{AE303AA6-0063-41CD-95B1-D6B20E7F9828}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -32,9 +30,5 @@ Global
 		{258EBCDF-2FC3-46E7-BE61-6C19C72FA008}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{258EBCDF-2FC3-46E7-BE61-6C19C72FA008}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{258EBCDF-2FC3-46E7-BE61-6C19C72FA008}.Release|Any CPU.Build.0 = Release|Any CPU
-		{AE303AA6-0063-41CD-95B1-D6B20E7F9828}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{AE303AA6-0063-41CD-95B1-D6B20E7F9828}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{AE303AA6-0063-41CD-95B1-D6B20E7F9828}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{AE303AA6-0063-41CD-95B1-D6B20E7F9828}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
