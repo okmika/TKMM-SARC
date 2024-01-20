@@ -1,6 +1,3 @@
 [submodule "lib/SarcLibrary"]
 	path = lib/SarcLibrary
 	url = https://github.com/EPD-Libraries/SarcLibrary
-[submodule "lib/BymlLibrary"]
-	path = lib/BymlLibrary
-	url = https://github.com/NCF-Library/BymlLibrary
