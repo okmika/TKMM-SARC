@@ -40,8 +40,8 @@ Usage:
 Options:
   --mod <mod> (REQUIRED)        Path to the mod to perform the packaging on
   --output <output> (REQUIRED)  Merged mods output directory
-  --config <config>             Path to the location of the TKMM configuration files. Default if not specified.
-  --checksum <checksum>         Path to the location of the TKMM checksum database. Default if not specified.
+  --config <config>             Path to the TKMM config json. Default if not specified.
+  --checksum <checksum>         Path to the TKMM checksum database. Default if not specified.
   --versions <versions>         Versions to try and package against [default: 100|110|111|120|121]
   --verbose                     Enable verbose output
   -?, -h, --help                Show help and usage information
@@ -73,8 +73,8 @@ Options:
   --base <base> (REQUIRED)      The base folder path containing the mod subfolders
   --mods <mods> (REQUIRED)      A list of mod folder names, within the base mod folder, to merge, in order of priority
   --output <output> (REQUIRED)  Merged mods output directory
-  --config <config>             Path to the location of the TKMM configuration files. Default if not specified.
-  --flat                        Perform merging on flat files only instead of SARC archives
+  --config <config>             Path to the TKMM config json. Default if not specified.
+  --process <All|Archive|Flat>  Specify what type of merge to perform
   --verbose                     Enable verbose output
   -?, -h, --help                Show help and usage information
 ```
