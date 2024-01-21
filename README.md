@@ -1,6 +1,6 @@
 # SARC/BYML Packager and Merger
 
-This project is part of [TKMM](https://github.com/tcml-team) and is used as part of the mod manager's functionality. 
+This project is part of [TKMM](https://github.com/tkmm-team) and is used as part of the mod manager's functionality. 
 It can also be used standalone if need be, using the instructions below.
 
 ## What does the tool do?
