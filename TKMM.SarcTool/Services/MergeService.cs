@@ -135,7 +135,7 @@ internal class MergeService {
 
     private void MergeShops(string outputPath, StatusContext context) {
         if (shops == null || shops.Count == 0) {
-            AnsiConsole.MarkupLineInterpolated($"! [yellow]Shops definition is empty. Skipping overflow merge.");
+            AnsiConsole.MarkupLineInterpolated($"! [yellow]Shops definition is empty. Skipping overflow merge.[/]");
             return;
         }
         

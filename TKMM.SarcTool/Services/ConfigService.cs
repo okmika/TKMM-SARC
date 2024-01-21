@@ -8,26 +8,32 @@ public class ConfigService {
 
     public ConfigJson GetConfig(string path) {
         try {
+            if (!File.Exists(path))
+                return new ConfigJson();
+            
             var configContents = File.ReadAllText(path);
             var deserialized = JsonConvert.DeserializeObject<ConfigJson>(configContents);
 
             return deserialized ?? new ConfigJson();
         } catch (Exception exc) {
             AnsiConsole.WriteException(exc, ExceptionFormats.ShortenEverything);
-            AnsiConsole.Markup("[orange]Failed to read configuration.[/]");
+            AnsiConsole.MarkupLine("[yellow]Failed to read configuration.[/]");
             return new ConfigJson();
         }
     }
 
     public List<ShopsJsonEntry> GetShops(string path) {
         try {
+            if (!File.Exists(path))
+                return new List<ShopsJsonEntry>();
+            
             var contents = File.ReadAllText(path);
             var deserialized = JsonConvert.DeserializeObject<List<ShopsJsonEntry>>(contents);
 
             return deserialized ?? new List<ShopsJsonEntry>();
         } catch (Exception exc) {
             AnsiConsole.WriteException(exc, ExceptionFormats.ShortenEverything);
-            AnsiConsole.Markup("[orange]Failed to read shops JSON.[/]");
+            AnsiConsole.MarkupLine("[yellow]Failed to read shops JSON.[/]");
             return new List<ShopsJsonEntry>();
         }
     }
