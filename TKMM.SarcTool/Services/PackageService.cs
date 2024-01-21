@@ -136,6 +136,7 @@ internal class PackageService {
 
         var sarc = Sarc.FromBinary(fileContents);
         var originalSarc = GetOriginalArchive(Path.GetFileName(archivePath), pathRelativeToBase, isCompressed, isPackFile);
+        var isVanillaFile = IsVanillaFile(GetArchiveRelativeFilename(Path.GetFileName(archivePath), pathRelativeToBase));
         var toRemove = new List<string>();
         var atLeastOneReplacement = false;
 
@@ -178,7 +179,7 @@ internal class PackageService {
         }
         
         // Nothing to remove? We can skip it
-        if (toRemove.Count == 0 && !atLeastOneReplacement)
+        if (toRemove.Count == 0 && !atLeastOneReplacement && isVanillaFile)
             return Span<byte>.Empty;
         
         // Removals
@@ -216,7 +217,31 @@ internal class PackageService {
         return false;
     }
 
+    private bool IsVanillaFile(string filename) {
+        var filenameHash = Checksum.ComputeXxHash(filename);
+        return checksumLookup!.GetChecksum(filenameHash) != null;
+    }
+
     private bool IsArchiveIdentical(string archivePath, string pathRelativeToBase, ulong archiveHash) {
+        var archiveRelativeFilename = GetArchiveRelativeFilename(archivePath, pathRelativeToBase);
+
+        // Hash of the filename and contents
+        var filenameHash = Checksum.ComputeXxHash(archiveRelativeFilename);
+
+        if (checksumLookup!.GetChecksum(filenameHash) == archiveHash)
+            return true;
+
+        foreach (var version in versions) {
+            var versionHash = Checksum.ComputeXxHash(archiveRelativeFilename + "#" + version);
+            if (checksumLookup!.GetChecksum(versionHash) == archiveHash)
+                return true;
+        }
+
+        return false;
+
+    }
+
+    private static string GetArchiveRelativeFilename(string archivePath, string pathRelativeToBase) {
         // Relative filename
         var pathSeparator = Path.DirectorySeparatorChar;
         var archiveRelativeFilename = Path.Combine(pathRelativeToBase, Path.GetFileName(archivePath));
@@ -232,21 +257,7 @@ internal class PackageService {
         // Get rid of any .zs on the end if the file was originally compressed
         if (archiveRelativeFilename.EndsWith(".zs"))
             archiveRelativeFilename = archiveRelativeFilename.Substring(0, archiveRelativeFilename.Length - 3);
-        
-        // Hash of the filename and contents
-        var filenameHash = Checksum.ComputeXxHash(archiveRelativeFilename);
-
-        if (checksumLookup!.GetChecksum(filenameHash) == archiveHash)
-            return true;
-
-        foreach (var version in versions) {
-            var versionHash = Checksum.ComputeXxHash(archiveRelativeFilename + "#" + version);
-            if (checksumLookup!.GetChecksum(versionHash) == archiveHash)
-                return true;
-        }
-
-        return false;
-
+        return archiveRelativeFilename;
     }
 
     private Sarc? GetOriginalArchive(string archiveFile, string pathRelativeToBase, bool isCompressed, bool isPackFile) {

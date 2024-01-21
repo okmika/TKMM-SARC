@@ -119,7 +119,12 @@ internal class MergeService {
         supportedFlatExtensions = supportedFlatExtensions.Concat(supportedFlatExtensions.Select(l => $"{l}.zs")).ToHashSet();
 
         foreach (var filePath in filesInModFolder) {
-            var extension = Path.GetExtension(filePath).Substring(1).ToLower();
+            var extension = Path.GetExtension(filePath);
+
+            if (extension.Length <= 1)
+                continue;
+
+            extension = extension.Substring(1).ToLower();
 
             if (!supportedFlatExtensions.Contains(extension))
                 continue;
