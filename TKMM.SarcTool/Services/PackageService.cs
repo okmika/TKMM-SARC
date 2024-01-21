@@ -30,7 +30,10 @@ internal class PackageService {
     public int Execute(string outputPath, string modPath, string? configPath, string? checksumPath, string[] checkVersions) {
         if (String.IsNullOrWhiteSpace(configPath))
             configPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                                      "Totk", "config.json");
+                                      "Totk");
+
+        // Config path only expects the json
+        configPath = Path.Combine(configPath, "config.json");
         
         if (String.IsNullOrWhiteSpace(checksumPath))
             checksumPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
