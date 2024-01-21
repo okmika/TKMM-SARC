@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using TKMM.SarcTool.Common;
 
-namespace TKMM.SarcTool.Plugin.Byml;
+namespace TKMM.SarcTool.Plugin.BymlPlugin;
 
 public class BymlPlugin : SarcPlugin {
     public override string Name => "Byml Plugin for TKMM SARC Tool";

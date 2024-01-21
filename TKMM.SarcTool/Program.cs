@@ -23,35 +23,29 @@ public static class Program {
     private static RootCommand GetCommandLine() {
         var mergeCommand = new Command("merge");
         var packageCommand = new Command("package");
+        
 
-        var mergeCommandModsOption = new Option<IEnumerable<string>>(
-            "--mods", "A list of mod folder names, within the base mod folder, to merge, in order of priority") {
-            IsRequired = true,
-            AllowMultipleArgumentsPerToken = true,
-        };
+        var verboseOption = new Option<bool>("--verbose", "Enable verbose output");
 
-        var mergeCommandBaseOption = new Option<string>("--base", "The base folder path containing the mod subfolders") {
-                IsRequired = true
-            }
-            .LegalFilePathsOnly();
+        MakeMergeCommand(mergeCommand, verboseOption);
+        MakePackageCommand(packageCommand, verboseOption);
+        
+        var pluginCommand = new Command("showplugins");
+        pluginCommand.SetHandler(() => ShowPlugins());
+        
+        var rootCommand = new RootCommand();
+        rootCommand.Add(packageCommand);
+        rootCommand.Add(mergeCommand);
+        rootCommand.Add(pluginCommand);
+        rootCommand.AddGlobalOption(verboseOption);
+        
+        
 
-        var mergeConfigOption =
-            new Option<string?>(
-                "--config", "Path to the location of the TKMM configuration files. Default if not specified.");
+        
+        return rootCommand;
+    }
 
-        var mergeCommandOutputOption = new Option<string>("--output", "Merged mods output directory") {
-                IsRequired = true
-            }
-            .LegalFilePathsOnly();
-
-        var mergeFlatOption = new Option<bool>("--flat", "Perform merging on flat files only instead of SARC archives");
-
-        mergeCommand.AddOption(mergeCommandBaseOption);
-        mergeCommand.AddOption(mergeCommandModsOption);
-        mergeCommand.AddOption(mergeCommandOutputOption);
-        mergeCommand.AddOption(mergeConfigOption);
-        mergeCommand.AddOption(mergeFlatOption);
-
+    private static void MakePackageCommand(Command packageCommand, Option<bool> verboseOption) {
         var packageCommandModOption = new Option<string>("--mod", "Path to the mod to perform the packaging on") {
                 IsRequired = true
             }
@@ -86,28 +80,46 @@ public static class Program {
         packageCommand.AddOption(packageCommandChecksumOption);
         packageCommand.AddOption(packageCommandVersionsOption);
 
-        var pluginCommand = new Command("showplugins");
-        pluginCommand.SetHandler(() => ShowPlugins());
-
-        var verboseOption = new Option<bool>("--verbose", "Enable verbose output");
-        
-        var rootCommand = new RootCommand();
-        rootCommand.Add(packageCommand);
-        rootCommand.Add(mergeCommand);
-        rootCommand.Add(pluginCommand);
-        rootCommand.AddGlobalOption(verboseOption);
-        
-        mergeCommand.SetHandler((modsList, basePath, outputPath, configPath, verbose, flatOnly) => 
-                                    RunMerge(modsList, basePath, outputPath, configPath, verbose, flatOnly),
-                                mergeCommandModsOption, mergeCommandBaseOption, mergeCommandOutputOption, 
-                                mergeConfigOption, verboseOption, mergeFlatOption);
-
-        packageCommand.SetHandler((outputPath, modPath, configPath, checksumPath, versions, verbose) => 
-                                      RunPackage(outputPath, modPath, configPath, checksumPath, versions, verbose), 
+        packageCommand.SetHandler((outputPath, modPath, configPath, checksumPath, versions, verbose) =>
+                                      RunPackage(outputPath, modPath, configPath, checksumPath, versions, verbose),
                                   packageCommandOutputOption,
-                                  packageCommandModOption, packageCommandConfigOption, packageCommandChecksumOption, 
+                                  packageCommandModOption, packageCommandConfigOption, packageCommandChecksumOption,
                                   packageCommandVersionsOption, verboseOption);
-        return rootCommand;
+    }
+
+    private static void MakeMergeCommand(Command mergeCommand, Option<bool> verboseOption) {
+        var mergeCommandModsOption = new Option<IEnumerable<string>>(
+            "--mods", "A list of mod folder names, within the base mod folder, to merge, in order of priority") {
+            IsRequired = true,
+            AllowMultipleArgumentsPerToken = true,
+        };
+
+        var mergeCommandBaseOption = new Option<string>("--base", "The base folder path containing the mod subfolders") {
+                IsRequired = true
+            }
+            .LegalFilePathsOnly();
+
+        var mergeConfigOption =
+            new Option<string?>(
+                "--config", "Path to the location of the TKMM configuration files. Default if not specified.");
+
+        var mergeCommandOutputOption = new Option<string>("--output", "Merged mods output directory") {
+                IsRequired = true
+            }
+            .LegalFilePathsOnly();
+
+        var mergeProcessModeOption = new Option<ProcessMode>("--process", "Specify what type of merge to perform");
+
+        mergeCommand.AddOption(mergeCommandBaseOption);
+        mergeCommand.AddOption(mergeCommandModsOption);
+        mergeCommand.AddOption(mergeCommandOutputOption);
+        mergeCommand.AddOption(mergeConfigOption);
+        mergeCommand.AddOption(mergeProcessModeOption);
+
+        mergeCommand.SetHandler((modsList, basePath, outputPath, configPath, verbose, processMode) =>
+                                    RunMerge(modsList, basePath, outputPath, configPath, verbose, processMode),
+                                mergeCommandModsOption, mergeCommandBaseOption, mergeCommandOutputOption,
+                                mergeConfigOption, verboseOption, mergeProcessModeOption);
     }
 
     private static IHost Initialize() {
@@ -137,7 +149,7 @@ public static class Program {
     }
 
     private static int RunMerge(IEnumerable<string> modsList, string basePath, string outputPath, string? configPath,
-                                bool verbose, bool flatOnly) {
+                                bool verbose, ProcessMode processMode) {
         try {
             var host = Initialize();
             var mergeService = host.Services.GetRequiredService<MergeService>();
@@ -149,10 +161,14 @@ public static class Program {
             // Reverse the order of the mods because we need to process the lowest priority mod first
             var modsToMerge = modsList.ToArray().Reverse();
 
-            if (!flatOnly)
+            if (processMode == ProcessMode.All) {
                 mergeService.ExecuteArchiveMerge(modsToMerge, basePath, outputPath, configPath);
-            else
                 mergeService.ExecuteFlatMerge(modsToMerge, basePath, outputPath, configPath);
+            } else if (processMode == ProcessMode.Archive) {
+                mergeService.ExecuteArchiveMerge(modsToMerge, basePath, outputPath, configPath);
+            } else if (processMode == ProcessMode.Flat) {
+                mergeService.ExecuteFlatMerge(modsToMerge, basePath, outputPath, configPath);
+            }
             
             return 0;
         } catch (Exception exc) {
@@ -163,6 +179,7 @@ public static class Program {
 
     private static int RunPackage(string outputPath, string modPath, string? configPath, string? checksumPath,
                                   string[] versions, bool verbose) {
+        
         try {
             var host = Initialize();
             var packageService = host.Services.GetRequiredService<PackageService>();
@@ -210,7 +227,7 @@ public static class Program {
         
         AnsiConsole.Write(new FigletText("SARC Tool"));
         AnsiConsole.MarkupInterpolated(
-            $"[bold]TKMM SARC Tool v. {version}\nCopyright (c) @mikachan & contributors\nhttps://github.com/okmika/TKMM-SARC[/]\n\n");
+            $"[bold]TKMM SARC Tool v. {version}\nhttps://github.com/okmika/TKMM-SARC[/]\n\n");
         
     }
 
@@ -221,4 +238,10 @@ public static class Program {
 public enum OperationMode {
     Package,
     Merge
+}
+
+public enum ProcessMode {
+    All,
+    Archive,
+    Flat
 }

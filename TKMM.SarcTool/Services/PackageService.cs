@@ -8,19 +8,23 @@ namespace TKMM.SarcTool.Services;
 internal class PackageService {
 
     private readonly ConfigService configService;
+    private readonly IHandlerManager handlerManager;
 
     private ConfigJson? config;
     private ZsCompression? compression;
     private ChecksumLookup? checksumLookup;
     private string[] versions = new string[0];
+    private bool verboseOutput;
     
     private readonly string[] supportedExtensions = new[] {
         ".bars", ".bfarc", ".bkres", ".blarc", ".genvb", ".pack", ".ta",
         ".bars.zs", ".bfarc.zs", ".bkres.zs", ".blarc.zs", ".genvb.zs", ".pack.zs", ".ta.zs"
     };
 
-    public PackageService(ConfigService configService) {
+    public PackageService(ConfigService configService, IHandlerManager handlerManager, IGlobals globals) {
         this.configService = configService;
+        this.handlerManager = handlerManager;
+        this.verboseOutput = globals.Verbose;
     }
     
     public int Execute(string outputPath, string modPath, string? configPath, string? checksumPath, string[] checkVersions) {
@@ -128,7 +132,9 @@ internal class PackageService {
             return Span<byte>.Empty;
 
         var sarc = Sarc.FromBinary(fileContents);
+        var originalSarc = GetOriginalArchive(Path.GetFileName(archivePath), pathRelativeToBase, isCompressed, isPackFile);
         var toRemove = new List<string>();
+        var atLeastOneReplacement = false;
 
         foreach (var entry in sarc) {
             var fileHash = Checksum.ComputeXxHash(entry.Value);
@@ -136,11 +142,38 @@ internal class PackageService {
             // Remove identical items from the SARC
             if (IsFileIdentical(entry.Key, fileHash)) {
                 toRemove.Add(entry.Key);
+            } else {
+                if (!originalSarc.ContainsKey(entry.Key))
+                    continue;
+                
+                // Otherwise, reconcile with the handler
+                var fileExtension = Path.GetExtension(entry.Key).Substring(1);
+                var handler = handlerManager.GetHandlerInstance(fileExtension);
+
+                if (handler == null) {
+                    if (verboseOutput)
+                        AnsiConsole.MarkupLineInterpolated($"! [yellow]{archivePath} {entry.Value}: No handler for type {
+                            fileExtension}, overwriting[/]");
+
+                    sarc[entry.Key] = entry.Value;
+                    continue;
+                }
+
+                if (verboseOutput)
+                    AnsiConsole.MarkupLineInterpolated($"- {archiveHash}: Reconciling {entry.Key}");
+
+                var result = handler.Package(entry.Key, new List<MergeFile>() {
+                    new MergeFile(1, entry.Value),
+                    new MergeFile(0, originalSarc[entry.Key])
+                });
+
+                sarc[entry.Key] = result.ToArray();
+                atLeastOneReplacement = true;
             }
         }
         
         // Nothing to remove? We can skip it
-        if (toRemove.Count == 0)
+        if (toRemove.Count == 0 && !atLeastOneReplacement)
             return Span<byte>.Empty;
         
         // Removals
@@ -209,6 +242,28 @@ internal class PackageService {
 
         return false;
 
+    }
+
+    private Sarc GetOriginalArchive(string archiveFile, string pathRelativeToBase, bool isCompressed, bool isPackFile) {
+
+        // Get rid of /romfs/ in the path
+        var directoryChar = Path.DirectorySeparatorChar;
+        pathRelativeToBase = pathRelativeToBase.Replace($"romfs{directoryChar}", "")
+                                               .Replace($"{directoryChar}romfs{directoryChar}", "");
+        
+        var archivePath = Path.Combine(config!.GamePath!, pathRelativeToBase, archiveFile);
+        
+        Span<byte> fileContents;
+        if (isCompressed) {
+            // Need to decompress the file first
+            var compressedContents = File.ReadAllBytes(archivePath).AsSpan();
+            fileContents = compression!.Decompress(compressedContents,
+                                                  isPackFile ? CompressionType.Pack : CompressionType.Common);
+        } else {
+            fileContents = File.ReadAllBytes(archivePath).AsSpan();
+        }
+
+        return Sarc.FromBinary(fileContents);
     }
 
     private bool Initialize(string configPath, string checksumPath) {

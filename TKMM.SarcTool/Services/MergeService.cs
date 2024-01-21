@@ -213,9 +213,8 @@ internal class MergeService {
         if (!File.Exists(targetArchivePath)) {
             if (!Directory.Exists(Path.GetDirectoryName(targetArchivePath)))
                 Directory.CreateDirectory(Path.GetDirectoryName(targetArchivePath)!);
-            
-            File.Copy(archivePath, targetArchivePath);
-            return;
+
+            CopyOriginal(archivePath, pathRelativeToBase, targetArchivePath);
         }
         
         // Otherwise try to reconcile and merge
@@ -319,6 +318,18 @@ internal class MergeService {
                                compression.Compress(contents.ToArray(), CompressionType.Common).ToArray());
         } else {
             File.WriteAllBytes(filePath, contents.ToArray());
+        }
+    }
+
+    private void CopyOriginal(string archivePath, string pathRelativeToBase, string outputFile) {
+        var sourcePath = config!.GamePath!;
+        var originalFile = Path.Combine(sourcePath, pathRelativeToBase, Path.GetFileName(archivePath));
+
+        if (File.Exists(originalFile)) {
+            if (verboseOutput)
+                AnsiConsole.MarkupLineInterpolated($"! [yellow]Copying file {originalFile} to {outputFile}[/]");
+            
+            File.Copy(originalFile, outputFile);
         }
     }
 
