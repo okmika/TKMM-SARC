@@ -65,12 +65,12 @@ public static class Program {
 
         var packageCommandConfigOption = new Option<string?>(
                 "--config",
-                "Path to the location of the TKMM configuration files. Default if not specified.")
+                "Path to the TKMM configuration files (config.json). Default if not specified.")
             .LegalFileNamesOnly();
 
         var packageCommandChecksumOption = new Option<string?>(
                 "--checksum",
-                "Path to the location of the TKMM checksum database. Default if not specified."
+                "Path to the TKMM checksum database. Default if not specified."
             )
             .LegalFileNamesOnly();
 
@@ -101,7 +101,7 @@ public static class Program {
 
         var mergeConfigOption =
             new Option<string?>(
-                "--config", "Path to the location of the TKMM configuration files. Default if not specified.");
+                "--config", "Path to the TKMM configuration files (config.json, shops.json). Default if not specified.");
 
         var mergeCommandOutputOption = new Option<string>("--output", "Merged mods output directory") {
                 IsRequired = true
@@ -161,16 +161,19 @@ public static class Program {
             // Reverse the order of the mods because we need to process the lowest priority mod first
             var modsToMerge = modsList.ToArray().Reverse();
 
+            int result = 0;
             if (processMode == ProcessMode.All) {
-                mergeService.ExecuteArchiveMerge(modsToMerge, basePath, outputPath, configPath);
-                mergeService.ExecuteFlatMerge(modsToMerge, basePath, outputPath, configPath);
+                result = mergeService.ExecuteArchiveMerge(modsToMerge, basePath, outputPath, configPath);
+                
+                if (result == 0)
+                    result = mergeService.ExecuteFlatMerge(modsToMerge, basePath, outputPath, configPath);
             } else if (processMode == ProcessMode.Archive) {
-                mergeService.ExecuteArchiveMerge(modsToMerge, basePath, outputPath, configPath);
+                result = mergeService.ExecuteArchiveMerge(modsToMerge, basePath, outputPath, configPath);
             } else if (processMode == ProcessMode.Flat) {
-                mergeService.ExecuteFlatMerge(modsToMerge, basePath, outputPath, configPath);
+                result = mergeService.ExecuteFlatMerge(modsToMerge, basePath, outputPath, configPath);
             }
             
-            return 0;
+            return result;
         } catch (Exception exc) {
             AnsiConsole.WriteException(exc, ExceptionFormats.ShortenPaths | ExceptionFormats.ShortenTypes);
             return -1;
@@ -188,8 +191,8 @@ public static class Program {
             // Set global verbosity
             (globals as Globals)!.Verbose = verbose;
 
-            packageService.Execute(outputPath, modPath, configPath, checksumPath, versions);
-            return 0;
+            var result = packageService.Execute(outputPath, modPath, configPath, checksumPath, versions);
+            return result;
         } catch (Exception exc) {
             AnsiConsole.WriteException(exc, ExceptionFormats.ShortenPaths | ExceptionFormats.ShortenTypes);
             return -1;
