@@ -226,7 +226,7 @@ public static class Program {
     
     private static void PrintBanner() {
         var assembly = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
-        var version = $"{assembly.GetName().Version?.Major}.{assembly.GetName().Version?.Minor}";
+        var version = $"{assembly.GetName().Version?.Major}.{assembly.GetName().Version?.Minor}.{assembly.GetName().Version?.Revision}";
         
         AnsiConsole.Write(new FigletText("SARC Tool"));
         AnsiConsole.MarkupInterpolated(

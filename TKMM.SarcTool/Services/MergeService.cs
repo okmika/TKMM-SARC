@@ -256,8 +256,14 @@ internal class MergeService {
         if (!File.Exists(targetArchivePath)) {
             if (!Directory.Exists(Path.GetDirectoryName(targetArchivePath)))
                 Directory.CreateDirectory(Path.GetDirectoryName(targetArchivePath)!);
-
-            CopyOriginal(archivePath, pathRelativeToBase, targetArchivePath);
+            
+            var didCopy = CopyOriginal(archivePath, pathRelativeToBase, targetArchivePath);
+            
+            // Copy the mod's package to the output if we otherwise failed to copy the file from the dump
+            if (!didCopy) {
+                File.Copy(archivePath, targetArchivePath);
+                return;
+            }
         }
         
         // Otherwise try to reconcile and merge
@@ -364,7 +370,7 @@ internal class MergeService {
         }
     }
 
-    private void CopyOriginal(string archivePath, string pathRelativeToBase, string outputFile) {
+    private bool CopyOriginal(string archivePath, string pathRelativeToBase, string outputFile) {
         var sourcePath = config!.GamePath!;
         var originalFile = Path.Combine(sourcePath, pathRelativeToBase, Path.GetFileName(archivePath));
 
@@ -373,7 +379,10 @@ internal class MergeService {
                 AnsiConsole.MarkupLineInterpolated($"! [yellow]Copying file {originalFile} to {outputFile}[/]");
             
             File.Copy(originalFile, outputFile);
+            return true;
         }
+
+        return false;
     }
 
     private bool Initialize(string configPath) {

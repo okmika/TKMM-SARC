@@ -145,7 +145,9 @@ internal class PackageService {
             // Remove identical items from the SARC
             if (IsFileIdentical(entry.Key, fileHash)) {
                 toRemove.Add(entry.Key);
-            } else {
+            } else if (originalSarc != null) {
+                // Perform merge against the original file if we have an archive in the dump
+                
                 if (!originalSarc.ContainsKey(entry.Key))
                     continue;
                 
@@ -247,7 +249,7 @@ internal class PackageService {
 
     }
 
-    private Sarc GetOriginalArchive(string archiveFile, string pathRelativeToBase, bool isCompressed, bool isPackFile) {
+    private Sarc? GetOriginalArchive(string archiveFile, string pathRelativeToBase, bool isCompressed, bool isPackFile) {
 
         // Get rid of /romfs/ in the path
         var directoryChar = Path.DirectorySeparatorChar;
@@ -255,6 +257,9 @@ internal class PackageService {
                                                .Replace($"{directoryChar}romfs{directoryChar}", "");
         
         var archivePath = Path.Combine(config!.GamePath!, pathRelativeToBase, archiveFile);
+
+        if (!File.Exists(archivePath))
+            return null;
         
         Span<byte> fileContents;
         if (isCompressed) {
