@@ -23,12 +23,14 @@ public static class Program {
     private static RootCommand GetCommandLine() {
         var mergeCommand = new Command("merge");
         var packageCommand = new Command("package");
+        var assembleCommand = new Command("assemble");
         
 
         var verboseOption = new Option<bool>("--verbose", "Enable verbose output");
 
         MakeMergeCommand(mergeCommand, verboseOption);
         MakePackageCommand(packageCommand, verboseOption);
+        MakeAssembleCommand(assembleCommand, verboseOption);
         
         var pluginCommand = new Command("showplugins");
         pluginCommand.SetHandler(() => ShowPlugins());
@@ -37,12 +39,39 @@ public static class Program {
         rootCommand.Add(packageCommand);
         rootCommand.Add(mergeCommand);
         rootCommand.Add(pluginCommand);
+        rootCommand.Add(assembleCommand);
         rootCommand.AddGlobalOption(verboseOption);
         
         
 
         
         return rootCommand;
+    }
+    
+    private static void MakeAssembleCommand(Command assembleCommand, Option<bool> verboseOption) {
+        var assembleCommandModOption = new Option<string>("--mod", "Path to the mod to perform the assembly on") {
+                IsRequired = true
+            }
+            .LegalFilePathsOnly();
+
+        var assembleCommandOutputOption = new Option<string>("--output", "Merged mods output directory") {
+                IsRequired = true
+            }
+            .LegalFilePathsOnly();
+
+        var assembleCommandConfigOption = new Option<string?>(
+                "--config",
+                "Path to the TKMM configuration files (config.json). Default if not specified.")
+            .LegalFileNamesOnly();
+
+        assembleCommand.AddOption(assembleCommandModOption);
+        assembleCommand.AddOption(assembleCommandOutputOption);
+        assembleCommand.AddOption(assembleCommandConfigOption);
+
+        assembleCommand.SetHandler((modPath, outputPath, configPath, verbose) =>
+                                       RunAssemble(modPath, outputPath, configPath, verbose),
+                                   assembleCommandModOption, assembleCommandOutputOption, assembleCommandConfigOption,
+                                   verboseOption);
     }
 
     private static void MakePackageCommand(Command packageCommand, Option<bool> verboseOption) {
@@ -138,6 +167,7 @@ public static class Program {
         hostBuilder.Services.AddTransient<IHandlerManager, HandlerManager>();
         hostBuilder.Services.AddTransient<MergeService>();
         hostBuilder.Services.AddTransient<PackageService>();
+        hostBuilder.Services.AddTransient<AssembleService>();
         hostBuilder.Services.AddTransient<ConfigService>();
         hostBuilder.Services.AddTransient<ILogger, SpectreConsoleLogger>();
         
@@ -146,6 +176,24 @@ public static class Program {
 
         return hostBuilder.Build();
 
+    }
+
+    private static int RunAssemble(string modPath, string outputPath, string? configPath, bool verbose) {
+        try {
+            var host = Initialize();
+            var assembleService = host.Services.GetRequiredService<AssembleService>();
+            var globals = host.Services.GetRequiredService<IGlobals>();
+
+            // Set global verbosity
+            (globals as Globals)!.Verbose = verbose;
+
+            var result = assembleService.Assemble(modPath, outputPath, configPath);
+
+            return result;
+        } catch (Exception exc) {
+            AnsiConsole.WriteException(exc, ExceptionFormats.ShortenPaths | ExceptionFormats.ShortenTypes);
+            return -1;
+        }
     }
 
     private static int RunMerge(IEnumerable<string> modsList, string basePath, string outputPath, string? configPath,
