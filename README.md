@@ -5,11 +5,20 @@ It can also be used standalone if need be, using the instructions below.
 
 ## What does the tool do?
 
-`SarcTool` has two modes of operation: `package` and `merge`:
+`SarcTool` has three modes of operation: `assemble`, `package` and `merge`:
 
+- The `assemble` mode places all flat files that are originally included in the vanilla version
+of the game into their respective original archives. This is useful if you develop a mod without
+placing the files into their associated archive.
+  > **It's recommended you run this step before packaging the mod.** 
+  > If you don't, you will find that a proper change log will not be generated for your flat files, 
+  > causing mod conflicts. 
+  
 - The `package` mode examines all SARC archives inside and removes any duplicated assets
 that have not been modified from their vanilla versions. This reduces the size of a mod and
 prevents conflicts where the author did not intend to modify an asset.
+
+
 - The `merge` mode accepts multiple mod folders and will combine all of the assets inside of
 all included SARC archives, based on priority. For example, if two mods provide the
 the same package file, `SarcTool` will evaluate its contents and smartly combine its contents. 
@@ -18,6 +27,34 @@ from each mod. In cases where this kind of merging is not possible, `SarcTool` w
 file with the one provided by a mod that has higher priority.
 
 ## How to use the tool
+
+### For assembling flat files
+`SarcTool.exe assemble --mod [mod] --output [output]`
+
+- `mod`: The path to the mod folder you would like to assemble files for
+- `output`: The path to the destination folder you would like the assembled files to be written to.
+
+Example:
+```
+SarcTool.exe assemble --mod "C:\My Mods\My Great Mod Folder" --output "C:\My Mods\combined\My Great Mod"
+```
+
+```
+Usage:
+  TKMM.SarcTool assemble [options]
+
+Options:
+  --mod <mod> (REQUIRED)        Path to the mod to perform the assembly on
+  --output <output> (REQUIRED)  Merged mods output directory
+  --config <config>             Path to the TKMM configuration files (config.json). Default if not specified.
+  --verbose                     Enable verbose output
+  -?, -h, --help                Show help and usage information
+```
+
+> **Note**: The first time you run `assemble`, SarcTool will build a database of files inside the archives. If you
+> update your game's version, you should delete the `archivemappings.bin` file in the TKMM configuration folder
+> (typically in `%localappdata%\totk` on Windows) to allow SarcTool to regenerate the database, otherwise the assembly
+> function will not work as intended.
 
 ### For packaging archives
 `SarcTool.exe package --mod [mod] --output [output]`
@@ -78,13 +115,6 @@ Options:
   --verbose                     Enable verbose output
   -?, -h, --help                Show help and usage information
 ```
-
-### For merging flat files
-
-You can run the `merge` command with the option `--flat` to perform the merge function on flat
-files that are not in archives, provided they are in a format that is supported by included plugins.
-
-When using the `--flat` option, **only** flat files will be merged and archives will remain untouched.
 
 ## Plugins
 
