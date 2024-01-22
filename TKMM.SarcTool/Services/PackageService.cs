@@ -75,35 +75,50 @@ internal class PackageService {
                    .Spinner(Spinner.Known.Dots2)
                    .Start("Preparing", context => {
             
-            foreach (var filePath in filesInFolder.Where(file => supportedExtensions.Any(ext => file.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))) {
-                var pathRelativeToBase = Path.GetRelativePath(modPath, Path.GetDirectoryName(filePath)!);
-                
-                context.Status($"Processing {filePath}");
-                var result = HandleArchive(filePath, pathRelativeToBase);
+                        foreach (var filePath in filesInFolder.Where(file => supportedExtensions.Any(ext => file.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))) {
+                            var pathRelativeToBase = Path.GetRelativePath(modPath, Path.GetDirectoryName(filePath)!);
+                            var destinationPath = Path.Combine(outputPath, pathRelativeToBase);
+                            if (!Directory.Exists(destinationPath))
+                                Directory.CreateDirectory(destinationPath);
 
-                if (result.Length == 0) {
-                    AnsiConsole.MarkupLineInterpolated($"! [yellow]Omitting {modPath} because file is same as vanilla or no changes made[/]");
-                    continue;
-                }
-                
-                // Copy to destination
-                
-                var destinationPath = Path.Combine(outputPath, pathRelativeToBase);
-                if (!Directory.Exists(destinationPath))
-                    Directory.CreateDirectory(destinationPath);
+                            var outputFilePath = Path.Combine(destinationPath, Path.GetFileName(filePath));
+                            
+                            try {
+                                context.Status($"Processing {filePath}");
+                                var result = HandleArchive(filePath, pathRelativeToBase);
 
-                var outputFilePath = Path.Combine(destinationPath, Path.GetFileName(filePath));
+                                if (result.Length == 0) {
+                                    AnsiConsole.MarkupLineInterpolated($"! [yellow]Omitting {modPath
+                                    } because file is same as vanilla or no changes made[/]");
+                                    continue;
+                                }
 
-                if (File.Exists(outputFilePath)) {
-                    AnsiConsole.MarkupLineInterpolated($"! [yellow]Overwriting existing file in output: {outputFilePath}[/]");
-                    File.Delete(outputFilePath);
-                }
+                                // Copy to destination
+                                if (File.Exists(outputFilePath)) {
+                                    AnsiConsole.MarkupLineInterpolated($"! [yellow]Overwriting existing file in output: {outputFilePath}[/]");
+                                    File.Delete(outputFilePath);
+                                }
 
-                File.WriteAllBytes(outputFilePath, result.ToArray());
+                                File.WriteAllBytes(outputFilePath, result.ToArray());
 
-                AnsiConsole.MarkupLineInterpolated($"» [green]Wrote {outputFilePath}[/]");
-            }
-        });
+                                AnsiConsole.MarkupLineInterpolated($"» [green]Wrote {outputFilePath}[/]");
+                            } catch (Exception exc) {
+                                AnsiConsole.WriteException(exc, ExceptionFormats.ShortenEverything);
+                                AnsiConsole.MarkupLineInterpolated($"X [red]Failed to package {filePath} - skipping[/]");
+                                
+                                if (File.Exists(outputFilePath)) {
+                                    AnsiConsole.MarkupLineInterpolated($"! [yellow]Overwriting existing file in output: {outputFilePath}[/]");
+                                    File.Delete(outputFilePath);
+                                }
+
+                                File.Copy(filePath, outputFilePath);
+                            }
+                        }
+
+                        AnsiConsole.MarkupLineInterpolated($"[bold]Packaging flat files in {modPath} to {outputPath}[/]");
+                        context.Status("Packaging flat files...");
+                        PackageFilesInMod(modPath, outputPath, context);
+                   });
         
 
     }
@@ -118,15 +133,8 @@ internal class PackageService {
 
         var isCompressed = archivePath.EndsWith(".zs");
         var isPackFile = archivePath.Contains(".pack.");
-        
-        Span<byte> fileContents;
-        if (isCompressed) {
-            // Need to decompress the file first
-            var compressedContents = File.ReadAllBytes(archivePath).AsSpan();
-            fileContents = compression.Decompress(compressedContents, isPackFile ? CompressionType.Pack : CompressionType.Common);
-        } else {
-            fileContents = File.ReadAllBytes(archivePath).AsSpan();
-        }
+
+        var fileContents = GetFileContents(archivePath, isCompressed, isPackFile);
 
         var archiveHash = Checksum.ComputeXxHash(fileContents);
         
@@ -200,6 +208,144 @@ internal class PackageService {
         }
 
         return outputContents;
+    }
+
+    private void PackageFilesInMod(string modPath, string outputPath, StatusContext statusContext) {
+        var filesInModFolder =
+            Directory.GetFiles(modPath, "*", SearchOption.AllDirectories);
+
+        var supportedFlatExtensions = handlerManager.GetSupportedExtensions().ToHashSet();
+        supportedFlatExtensions =
+            supportedFlatExtensions.Concat(supportedFlatExtensions.Select(l => $"{l}.zs")).ToHashSet();
+
+        foreach (var filePath in filesInModFolder) {
+            statusContext.Status($"Processing {filePath}");
+            
+            var extension = Path.GetExtension(filePath);
+
+            if (extension.Length <= 1)
+                continue;
+
+            extension = extension.Substring(1).ToLower();
+
+            if (!supportedFlatExtensions.Contains(extension))
+                continue;
+
+            var baseRomfs = Path.Combine(modPath, "romfs");
+            var pathRelativeToBase = Path.GetRelativePath(baseRomfs, Path.GetDirectoryName(filePath)!);
+
+            PackageFile(filePath, modPath, pathRelativeToBase, outputPath);
+
+            AnsiConsole.MarkupLineInterpolated($"» [green]Merged {filePath} into {pathRelativeToBase}[/]");
+        }
+    }
+
+    private void PackageFile(string filePath, string modPath, string pathRelativeToBase, string outputPath) {
+        var targetFilePath = Path.Combine(outputPath, "romfs", pathRelativeToBase, Path.GetFileName(filePath));
+        var vanillaFilePath = Path.Combine(config!.GamePath!, pathRelativeToBase, Path.GetFileName(filePath));
+
+        // If the vanilla file doesn't exist just copy it over and we're done
+        if (!File.Exists(vanillaFilePath)) {
+            File.Copy(filePath, targetFilePath);
+            return;
+        }
+        
+        // Create the target
+        if (!Directory.Exists(Path.GetDirectoryName(targetFilePath)))
+            Directory.CreateDirectory(Path.GetDirectoryName(targetFilePath)!);
+
+        // Otherwise try to reconcile and merge
+        var isCompressed = filePath.EndsWith(".zs");
+
+        if (isCompressed && !targetFilePath.EndsWith(".zs"))
+            targetFilePath += ".zs";
+
+        var vanillaFileContents = GetFlatFileContents(vanillaFilePath, isCompressed);
+        var targetFileContents = GetFlatFileContents(filePath, isCompressed);
+
+        var fileExtension = Path.GetExtension(filePath).Substring(1).ToLower();
+        var handler = handlerManager.GetHandlerInstance(fileExtension);
+
+        if (handler == null) {
+            if (verboseOutput)
+                AnsiConsole.MarkupLineInterpolated($"! [yellow]{modPath}: No handler for type {fileExtension}, overwriting {Path.GetFileName(filePath)} in {pathRelativeToBase}[/]");
+
+            File.Copy(filePath, targetFilePath);
+        } else {
+            var relativeFilename = Path.Combine(pathRelativeToBase, Path.GetFileName(filePath));
+
+            if (Path.DirectorySeparatorChar != '/')
+                relativeFilename = relativeFilename.Replace(Path.DirectorySeparatorChar, '/');
+
+            var result = handler.Package(relativeFilename, new List<MergeFile>() {
+                new MergeFile(0, vanillaFileContents),
+                new MergeFile(1, targetFileContents)
+            });
+
+            WriteFlatFileContents(targetFilePath, result, isCompressed);
+        }
+    }
+
+    internal void WriteFileContents(string archivePath, Sarc sarc, bool isCompressed, bool isPackFile) {
+        if (compression == null)
+            throw new Exception("Compression not loaded");
+
+        using var memoryStream = new MemoryStream();
+        sarc.Write(memoryStream);
+
+        if (isCompressed) {
+            File.WriteAllBytes(archivePath,
+                               compression.Compress(memoryStream.ToArray(),
+                                                    isPackFile ? CompressionType.Pack : CompressionType.Common)
+                                          .ToArray());
+        } else {
+            File.WriteAllBytes(archivePath, memoryStream.ToArray());
+        }
+    }
+
+    internal Span<byte> GetFileContents(string archivePath, bool isCompressed, bool isPackFile) {
+        if (compression == null)
+            throw new Exception("Compression not loaded");
+
+        Span<byte> sourceFileContents;
+        if (isCompressed) {
+            // Need to decompress the file first
+            var compressedContents = File.ReadAllBytes(archivePath).AsSpan();
+            sourceFileContents = compression.Decompress(compressedContents,
+                                                        isPackFile ? CompressionType.Pack : CompressionType.Common);
+        } else {
+            sourceFileContents = File.ReadAllBytes(archivePath).AsSpan();
+        }
+
+        return sourceFileContents;
+    }
+
+    private Memory<byte> GetFlatFileContents(string filePath, bool isCompressed) {
+        if (compression == null)
+            throw new Exception("Compression not loaded");
+
+        Span<byte> sourceFileContents;
+        if (isCompressed) {
+            // Need to decompress the file first
+            var compressedContents = File.ReadAllBytes(filePath).AsSpan();
+            sourceFileContents = compression.Decompress(compressedContents, CompressionType.Common);
+        } else {
+            sourceFileContents = File.ReadAllBytes(filePath).AsSpan();
+        }
+
+        return new Memory<byte>(sourceFileContents.ToArray());
+    }
+
+    private void WriteFlatFileContents(string filePath, ReadOnlyMemory<byte> contents, bool isCompressed) {
+        if (compression == null)
+            throw new Exception("Compression not loaded");
+
+        if (isCompressed) {
+            File.WriteAllBytes(filePath,
+                               compression.Compress(contents.ToArray(), CompressionType.Common).ToArray());
+        } else {
+            File.WriteAllBytes(filePath, contents.ToArray());
+        }
     }
 
     private bool IsFileIdentical(string filename, ulong fileHash) {

@@ -132,9 +132,14 @@ internal class MergeService {
             var baseRomfs = Path.Combine(basePath, modFolderName, "romfs");
             var pathRelativeToBase = Path.GetRelativePath(baseRomfs, Path.GetDirectoryName(filePath)!);
 
-            MergeFile(filePath, modFolderName, pathRelativeToBase, outputPath);
+            try {
+                MergeFile(filePath, modFolderName, pathRelativeToBase, outputPath);
+            } catch {
+                AnsiConsole.MarkupLineInterpolated($"X [red]Failed to merge {filePath} - abort[/]");
+                throw;
+            }
 
-            AnsiConsole.MarkupLineInterpolated($"» [green]Merged {filePath} into {pathRelativeToBase}");
+            AnsiConsole.MarkupLineInterpolated($"» [green]Merged {filePath} into {pathRelativeToBase}[/]");
         }
     }
 
@@ -183,15 +188,21 @@ internal class MergeService {
             if (!Directory.Exists(Path.GetDirectoryName(targetFilePath)))
                 Directory.CreateDirectory(Path.GetDirectoryName(targetFilePath)!);
 
-            File.Copy(filePath, targetFilePath);
-            return;
+            var didCopy = CopyOriginal(filePath, pathRelativeToBase, targetFilePath);
+
+            // Copy the mod's file to the output if we otherwise failed to copy the file from the dump
+            if (!didCopy) {
+                File.Copy(filePath, targetFilePath);
+                return;
+            }
         }
 
         // Otherwise try to reconcile and merge
-        var isCompressed = filePath.EndsWith(".zs");
+        var sourceIsCompressed = filePath.EndsWith(".zs");
+        var targetIsCompressed = filePath.EndsWith(".zs");
 
-        var sourceFileContents = GetFlatFileContents(filePath, isCompressed);
-        var targetFileContents = GetFlatFileContents(targetFilePath, isCompressed);
+        var sourceFileContents = GetFlatFileContents(filePath, sourceIsCompressed);
+        var targetFileContents = GetFlatFileContents(targetFilePath, targetIsCompressed);
 
         var fileExtension = Path.GetExtension(filePath).Substring(1).ToLower();
         var handler = handlerManager.GetHandlerInstance(fileExtension);
@@ -212,7 +223,7 @@ internal class MergeService {
                 new MergeFile(0, targetFileContents)
             });
 
-            WriteFlatFileContents(targetFilePath, result, isCompressed);
+            WriteFlatFileContents(targetFilePath, result, targetIsCompressed);
         }
     }
 
@@ -231,10 +242,23 @@ internal class MergeService {
             var baseRomfs = Path.Combine(basePath, modFolderName, "romfs");
             var pathRelativeToBase = Path.GetRelativePath(baseRomfs, Path.GetDirectoryName(filePath)!);
             statusContext.Status($"Merging {filePath}...");
-            
-            MergeArchive(modFolderName, filePath, pathRelativeToBase, outputPath);
 
-            AnsiConsole.MarkupLineInterpolated($"» [green]Merged {modFolderName} into {pathRelativeToBase}[/]");
+            try {
+                MergeArchive(modFolderName, filePath, pathRelativeToBase, outputPath);
+                AnsiConsole.MarkupLineInterpolated($"» [green]Merged {filePath} into {pathRelativeToBase}[/]");
+            } catch (InvalidDataException) {
+                AnsiConsole.MarkupLineInterpolated($"X [red]Invalid archive: {filePath} - can't merge so overwriting by priority[/]");
+                var targetArchivePath = Path.Combine(outputPath, pathRelativeToBase, Path.GetFileName(filePath));
+
+                if (File.Exists(targetArchivePath))
+                    File.Delete(targetArchivePath);
+
+                File.Copy(filePath, targetArchivePath);
+            } catch (Exception exc) {
+                AnsiConsole.WriteException(exc, ExceptionFormats.ShortenEverything);
+                AnsiConsole.MarkupLineInterpolated($"X [red]Failed to merge {filePath} - abort[/]");
+                throw;
+            }
         }
         
     }
