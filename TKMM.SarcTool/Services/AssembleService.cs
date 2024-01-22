@@ -19,7 +19,7 @@ public class AssembleService {
         this.handlerManager = handlerManager;
     }
 
-    public int Assemble(string modPath, string outputPath, string? configPath) {
+    public int Assemble(string modPath, string? configPath) {
 
         if (String.IsNullOrWhiteSpace(configPath))
             configPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -39,19 +39,19 @@ public class AssembleService {
                    .Spinner(Spinner.Known.Dots2)
                    .Start("Preparing", context => {
                        LoadArchiveCache(configPath, context);
-                       InternalAssemble(modPath, outputPath, context);
+                       InternalAssemble(modPath, context);
                    });
 
         AnsiConsole.MarkupLine("[green]Assembly completed successfully.[/]");
         return 0;
     }
 
-    private void InternalAssemble(string modPath, string outputPath, StatusContext context) {
+    private void InternalAssemble(string modPath, StatusContext context) {
 
         var supportedExtensions = handlerManager.GetSupportedExtensions();
 
         context.Status($"Preparing to assemble...");
-        AnsiConsole.MarkupLineInterpolated($"[bold]Assembling in {modPath} into {outputPath} ({string.Join(" ", supportedExtensions)})[/]");
+        AnsiConsole.MarkupLineInterpolated($"[bold]Assembling in {modPath}  ({string.Join(" ", supportedExtensions)})[/]");
         
         var flatFiles = Directory.GetFiles(modPath, "*", SearchOption.AllDirectories)
                                  .Where(l => supportedExtensions.Any(
@@ -63,31 +63,18 @@ public class AssembleService {
 
             var relativeFilePath = GetRelativePath(file, modPath);
             
-            // Copy over to target first
-            var targetFilePath = GetAbsolutePath(relativeFilePath, outputPath);
-
-            if (file.EndsWith(".zs") && !targetFilePath.EndsWith(".zs"))
-                targetFilePath += ".zs";
-
-            if (!Directory.Exists(Path.GetDirectoryName(targetFilePath)))
-                Directory.CreateDirectory(Path.GetDirectoryName(targetFilePath)!);
-            
-            // Don't overwrite files in case they were already put there by another tool
-            if (!File.Exists(targetFilePath))
-                File.Copy(file, targetFilePath);
-            
             if (!archiveMappings.TryGetValue(relativeFilePath, out var archiveRelativePath)) {
                 continue;
             }
 
-            if (!MergeIntoArchive(outputPath, archiveRelativePath, targetFilePath, relativeFilePath)) {
+            if (!MergeIntoArchive(modPath, archiveRelativePath, file, relativeFilePath)) {
                 AnsiConsole.MarkupLineInterpolated($"! [yellow]Skipping {file} - could not merge[/]");
                 continue;
             }
             
             // Success means we delete the flat file
-            AnsiConsole.MarkupLineInterpolated($"» [green]{targetFilePath} merged into {archiveRelativePath}");
-            File.Delete(targetFilePath);
+            AnsiConsole.MarkupLineInterpolated($"» [green]{file} merged into {archiveRelativePath}");
+            File.Delete(file);
 
         }
         

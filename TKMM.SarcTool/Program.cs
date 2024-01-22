@@ -36,10 +36,10 @@ public static class Program {
         pluginCommand.SetHandler(() => ShowPlugins());
         
         var rootCommand = new RootCommand();
+        rootCommand.Add(assembleCommand);
         rootCommand.Add(packageCommand);
         rootCommand.Add(mergeCommand);
         rootCommand.Add(pluginCommand);
-        rootCommand.Add(assembleCommand);
         rootCommand.AddGlobalOption(verboseOption);
         
         
@@ -54,23 +54,17 @@ public static class Program {
             }
             .LegalFilePathsOnly();
 
-        var assembleCommandOutputOption = new Option<string>("--output", "Merged mods output directory") {
-                IsRequired = true
-            }
-            .LegalFilePathsOnly();
-
         var assembleCommandConfigOption = new Option<string?>(
                 "--config",
                 "Path to the TKMM configuration files (config.json). Default if not specified.")
             .LegalFileNamesOnly();
 
         assembleCommand.AddOption(assembleCommandModOption);
-        assembleCommand.AddOption(assembleCommandOutputOption);
         assembleCommand.AddOption(assembleCommandConfigOption);
 
-        assembleCommand.SetHandler((modPath, outputPath, configPath, verbose) =>
-                                       RunAssemble(modPath, outputPath, configPath, verbose),
-                                   assembleCommandModOption, assembleCommandOutputOption, assembleCommandConfigOption,
+        assembleCommand.SetHandler((modPath, configPath, verbose) =>
+                                       RunAssemble(modPath, configPath, verbose),
+                                   assembleCommandModOption, assembleCommandConfigOption,
                                    verboseOption);
     }
 
@@ -178,7 +172,7 @@ public static class Program {
 
     }
 
-    private static int RunAssemble(string modPath, string outputPath, string? configPath, bool verbose) {
+    private static int RunAssemble(string modPath, string? configPath, bool verbose) {
         try {
             var host = Initialize();
             var assembleService = host.Services.GetRequiredService<AssembleService>();
@@ -187,7 +181,7 @@ public static class Program {
             // Set global verbosity
             (globals as Globals)!.Verbose = verbose;
 
-            var result = assembleService.Assemble(modPath, outputPath, configPath);
+            var result = assembleService.Assemble(modPath, configPath);
 
             return result;
         } catch (Exception exc) {

@@ -7,16 +7,18 @@ It can also be used standalone if need be, using the instructions below.
 
 `SarcTool` has three modes of operation: `assemble`, `package` and `merge`:
 
-- The `assemble` mode places all flat files that are originally included in the vanilla version
-of the game into their respective original archives. This is useful if you develop a mod without
+- The `assemble` mode places all flat files that are originally included inside of archives in the vanilla version
+of the game back into their respective original archives. This is useful if you develop a mod without
 placing the files into their associated archive.
   > **It's recommended you run this step before packaging the mod.** 
   > If you don't, you will find that a proper change log will not be generated for your flat files, 
   > causing mod conflicts. 
   
-- The `package` mode examines all SARC archives inside and removes any duplicated assets
+- The `package` mode examines all SARC archives and removes any duplicated assets within
 that have not been modified from their vanilla versions. This reduces the size of a mod and
-prevents conflicts where the author did not intend to modify an asset.
+prevents conflicts where the author did not intend to modify an asset. Packaging also
+compares loose `byml` or `bgyml` files with their vanilla versions and creates a special
+copy of the file that contains only the changes.
 
 
 - The `merge` mode accepts multiple mod folders and will combine all of the assets inside of
@@ -29,14 +31,19 @@ file with the one provided by a mod that has higher priority.
 ## How to use the tool
 
 ### For assembling flat files
-`SarcTool.exe assemble --mod [mod] --output [output]`
 
-- `mod`: The path to the mod folder you would like to assemble files for
-- `output`: The path to the destination folder you would like the assembled files to be written to.
+`SarcTool.exe assemble --mod [mod]`
+
+- `mod`: The path to the mod folder you would like to assemble flat files in.
+
+> **IMPORTANT**
+>
+> The `assemble` command will overwrite files in your mod folder. Please make sure you are working on a copy
+> of everything in case you need to roll back the changes made.
 
 Example:
 ```
-SarcTool.exe assemble --mod "C:\My Mods\My Great Mod Folder" --output "C:\My Mods\combined\My Great Mod"
+SarcTool.exe assemble --mod "C:\My Mods\My Great Mod Folder"
 ```
 
 ```
@@ -45,7 +52,6 @@ Usage:
 
 Options:
   --mod <mod> (REQUIRED)        Path to the mod to perform the assembly on
-  --output <output> (REQUIRED)  Merged mods output directory
   --config <config>             Path to the TKMM configuration files (config.json). Default if not specified.
   --verbose                     Enable verbose output
   -?, -h, --help                Show help and usage information
