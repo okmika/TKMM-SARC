@@ -118,17 +118,23 @@ internal class MergeService {
         var supportedFlatExtensions = handlerManager.GetSupportedExtensions().ToHashSet();
         supportedFlatExtensions = supportedFlatExtensions.Concat(supportedFlatExtensions.Select(l => $"{l}.zs")).ToHashSet();
 
+        var folderExclusions = new[] {"RSDB"};
+        var extensionExclusions = new[] {".rstbl.byml", ".rstbl.byml.zs"};
+        var prefixExclusions = new[] {"GameDataList.Product"};
+
         foreach (var filePath in filesInModFolder) {
-            var extension = Path.GetExtension(filePath);
-
-            if (extension.Length <= 1)
+            if (!supportedFlatExtensions.Any(l => filePath.EndsWith(l)))
                 continue;
 
-            extension = extension.Substring(1).ToLower();
-
-            if (!supportedFlatExtensions.Contains(extension))
+            if (folderExclusions.Any(l => filePath.Contains(Path.DirectorySeparatorChar + l + Path.DirectorySeparatorChar)))
                 continue;
 
+            if (extensionExclusions.Any(l => filePath.EndsWith(l)))
+                continue;
+
+            if (prefixExclusions.Any(l => Path.GetFileName(filePath).StartsWith(l)))
+                continue;
+            
             var baseRomfs = Path.Combine(basePath, modFolderName, "romfs");
             var pathRelativeToBase = Path.GetRelativePath(baseRomfs, Path.GetDirectoryName(filePath)!);
 
