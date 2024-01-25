@@ -5,7 +5,7 @@ It can also be used standalone if need be, using the instructions below.
 
 ## What does the tool do?
 
-`SarcTool` has three modes of operation: `assemble`, `package` and `merge`:
+`SarcTool` has three primary modes of operation: `assemble`, `package` and `merge`:
 
 - The `assemble` mode places all flat files that are originally included inside of archives in the vanilla version
 of the game back into their respective original archives. This is useful if you develop a mod without
@@ -18,14 +18,16 @@ placing the files into their associated archive.
 that have not been modified from their vanilla versions. This reduces the size of a mod and
 prevents conflicts where the author did not intend to modify an asset. Packaging also
 compares loose `byml` or `bgyml` files with their vanilla versions and creates a special
-copy of the file that contains only the changes.
+copy of the file that contains only the changes. Packaging will also create a changelog
+for any GameDataList files inside of the mods.
 
 
 - The `merge` mode accepts multiple mod folders and will combine all of the assets inside of
 all included SARC archives, based on priority. For example, if two mods provide the
 the same package file, `SarcTool` will evaluate its contents and smartly combine its contents. 
 It will, for example, merge `.byml` files together, attempting to combine modified values
-from each mod. In cases where this kind of merging is not possible, `SarcTool` will replace the
+from each mod. It will also process any change logs to GameDataList files and merge them in.
+In cases where this kind of merging is not possible, `SarcTool` will replace the
 file with the one provided by a mod that has higher priority.
 
 ## How to use the tool
@@ -151,3 +153,26 @@ In order to ensure your plugin is loaded, make sure your DLL is in the same dire
 name must also start with `TKMM.SarcTool.Plugin` (for example, `TKMM.SarcTool.Plugin.Byml.dll`). If you run the
 `showplugins` command on the SarcTool executable and your plugin is listed, it will be used when processing files 
 that are in the format(s) you support.
+
+## Miscellaneous Commands
+
+### Comparing GameDataList Files
+
+You can use the `compare` command to compare two GameDataList files and see if there are any differences. The tool 
+won't tell you what differences there are, just that they are different. This is not a byte-for-byte compare; the
+tool compares all of the entries logically to determine if there are any changes.
+
+```
+Description:
+  Compare two GameDataList files for differences
+
+Usage:
+  TKMM.SarcTool comparegdl [options]
+
+Options:
+  --files <files> (REQUIRED)  Path to the two GDL files to compare
+  --config <config>           Path to the TKMM configuration files (config.json). Default if not specified.
+  --verbose                   Enable verbose output
+  -?, -h, --help              Show help and usage information
+
+```
