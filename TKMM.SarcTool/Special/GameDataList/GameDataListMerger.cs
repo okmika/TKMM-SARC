@@ -90,16 +90,24 @@ internal class GameDataListMerger {
         
         if (!tableDict.TryGetValue(change.Hash32 != 0 ? change.Hash32 : change.Hash64, out var existing)) {
             // Add a new record if we're set up for that
-            if (change.Change == GameDataListChangeType.Edit)
-                throw new InvalidOperationException($"Changelog inconsistency: 'Edit' operation on non-existent hash {(change.Hash32 != 0 ? change.Hash32 : change.Hash64)} in table {tableName}");
+            if (change.Change == GameDataListChangeType.Edit) {
+                AnsiConsole.MarkupLineInterpolated($"Changelog inconsistency: 'Edit' operation on non-existent hash {(change.Hash32 != 0 ? change.Hash32 : change.Hash64)} in table {tableName} - changing to add");
+                change.Change = GameDataListChangeType.Add;
+            }
 
             var newItem = new BymlMap();
             WriteItemForTable(change, newItem, tableName);
 
             table.Add(newItem);
         } else {
-            if (change.Change == GameDataListChangeType.Add)
-                throw new InvalidOperationException($"Changelog inconsistency: 'Add' operation on existing hash {(change.Hash32 != 0 ? change.Hash32 : change.Hash64)} in table {tableName}");
+            if (change.Change == GameDataListChangeType.Add) {
+                AnsiConsole.MarkupLineInterpolated($"Changelog inconsistency: 'Add' operation on existing hash {(change.Hash32 != 0 ? change.Hash32 : change.Hash64)} in table {tableName} - changing to edit");
+                change.Change = GameDataListChangeType.Edit;
+                foreach (var item in change.DefaultValue)
+                    item.Change = GameDataListChangeType.Edit;
+                foreach (var item in change.Values)
+                    item.Change = GameDataListChangeType.Edit;
+            }
             
             WriteItemForTable(change, existing, tableName);
         }
@@ -256,10 +264,13 @@ internal class GameDataListMerger {
             
             if (structValue == null)
                 throw new Exception("Invalid struct value in changelog");
-            
-            if (i >= valueArray.Count && change[i].Change == GameDataListChangeType.Edit)
-                throw new Exception("Edit operation failed on value - existing element not found");
-            else if (change[i].Change == GameDataListChangeType.Add) {
+
+            if (i >= valueArray.Count && change[i].Change == GameDataListChangeType.Edit) {
+                AnsiConsole.MarkupLineInterpolated($"! [yellow]Edit operation cannot update non existent element - changing to add[/]");
+                change[i].Change = GameDataListChangeType.Add;
+            }
+
+            if (change[i].Change == GameDataListChangeType.Add) {
                 valueArray.Add(new BymlMap() {
                     ["Hash"] = structValue[0],
                     ["Value"] = structValue[1]
@@ -277,9 +288,12 @@ internal class GameDataListMerger {
         var valueArray = value.GetArray();
 
         for (int i = 0; i < change.Length; i++) {
-            if (i >= valueArray.Count && change[i].Change == GameDataListChangeType.Edit)
-                throw new Exception("Edit operation failed on value - existing element not found");
-            else if (change[i].Change == GameDataListChangeType.Add)
+            if (i >= valueArray.Count && change[i].Change == GameDataListChangeType.Edit) {
+                AnsiConsole.MarkupLineInterpolated($"! [yellow]Edit operation cannot update non existent element - changing to add[/]");
+                change[i].Change = GameDataListChangeType.Add;
+            }
+            
+            if (change[i].Change == GameDataListChangeType.Add)
                 valueArray.Add(MakeValue(change[i].Value));
             else if (change[i].Change == GameDataListChangeType.Edit)
                 valueArray[i] = MakeValue(change[i].Value);
@@ -303,8 +317,10 @@ internal class GameDataListMerger {
 
     private void WriteSubArray(GameDataListValue[] changeArray, string table, BymlArray itemArray, ulong hash, string changeArrayDescription) {
         for (int i = 0; i < changeArray.Length; i++) {
-            if (changeArray[i].Change == GameDataListChangeType.Edit && i >= itemArray.Count)
-                throw new Exception($"Edit operation on hash {hash} in table {table} failed: {changeArrayDescription} element {i} does not exist.");
+            if (changeArray[i].Change == GameDataListChangeType.Edit && i >= itemArray.Count) {
+                AnsiConsole.MarkupLineInterpolated($"! [yellow]Edit operation on hash {hash} in table {table} failed: {changeArrayDescription} element {i} does not exist - assuming add[/]");
+                changeArray[i].Change = GameDataListChangeType.Add;
+            }
 
             var changeValue = changeArray[i].Value as ulong[];
 

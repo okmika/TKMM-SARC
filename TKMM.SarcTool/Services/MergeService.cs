@@ -190,50 +190,56 @@ internal class MergeService {
     }
 
     private void MergeGameDataList(string modPath, string outputPath, StatusContext statusContext) {
+        var gdlChangelog = Path.Combine(modPath, "romfs", "GameData", "GameDataList.gdlchangelog");
+
+        if (!File.Exists(gdlChangelog))
+            return;
+
         statusContext.Status("Merging GameDataList changes");
+        
+        // Copy over vanilla files first
+        var vanillaGdlPath = Path.Combine(config!.GamePath!, "GameData");
 
-        var gdlChangelogs = Directory.GetFiles(modPath, "*", SearchOption.AllDirectories)
-                                     .Where(l => l.EndsWith(".zs.gdlchangelog"));
+        if (!Directory.Exists(vanillaGdlPath))
+            throw new Exception($"Failed to find vanilla GDL files at {vanillaGdlPath}");
 
-        foreach (var gdlChangelog in gdlChangelogs) {
-            var relativePath = Path.GetRelativePath(modPath, gdlChangelog)
-                                   .Replace("romfs" + Path.DirectorySeparatorChar, "");     // We don't need romfs for this
+        var vanillaGdlFiles = Directory.GetFiles(vanillaGdlPath)
+                                       .Where(l => Path.GetFileName(l).StartsWith("GameDataList.Product") &&
+                                                   Path.GetFileName(l).EndsWith(".byml.zs"));
+
+        foreach (var vanillaFile in vanillaGdlFiles) {
+            var outputGdl = Path.Combine(outputPath, "GameData", Path.GetFileName(vanillaFile));
+
+            Directory.CreateDirectory(Path.GetDirectoryName(outputGdl)!);
             
-            var outputGdl = Path.Combine(outputPath, relativePath)
-                                .Replace(".gdlchangelog", "");
-
-            Memory<byte> sourceBytes;
-
-            if (!Directory.Exists(Path.GetDirectoryName(outputGdl)))
-                Directory.CreateDirectory(Path.GetDirectoryName(outputGdl)!);
-            
-            if (!File.Exists(outputGdl)) {
-                // Copy over the vanilla file for merging
-                var vanillaGdl = Path.Combine(config!.GamePath!,
-                                              relativePath.Replace(".gdlchangelog", "")
-                                                          .Replace($"romfs{Path.DirectorySeparatorChar}", "") // Also replace romfs/ in the path since the dump path already has it
-                );
-
-                if (!File.Exists(vanillaGdl)) {
-                    AnsiConsole.MarkupInterpolated($"X [red]Found GameDataList changelog {gdlChangelog} but did not find vanilla version at {vanillaGdl} - abort[/]");
-                    throw new Exception("Failed to find vanilla GDL file");
-                }
-
-                sourceBytes = GetFlatFileContents(vanillaGdl, true);
-            } else {
-                sourceBytes = GetFlatFileContents(outputGdl, true);
-            }
-
-            var changelogBytes = new Memory<byte>(File.ReadAllBytes(gdlChangelog));
-
-            var merger = new GameDataListMerger();
-            var resultBytes = merger.Merge(sourceBytes, changelogBytes);
-
-            WriteFlatFileContents(outputGdl, resultBytes, true);
-
-            AnsiConsole.MarkupLineInterpolated($"» [green]Merged changelog into {outputGdl}[/]");
-
+            if (!File.Exists(outputGdl))
+                File.Copy(vanillaFile, outputGdl);
         }
+
+        var gdlFiles = Directory.GetFiles(Path.Combine(outputPath, "GameData"))
+                                .Where(l => Path.GetFileName(l).StartsWith("GameDataList.Product"))
+                                .ToList();
+
+        var changelogBytes = File.ReadAllBytes(gdlChangelog);
+
+        foreach (var gdlFile in gdlFiles) {
+            statusContext.Status($"Processing GDL {gdlFile}");
+            
+            var gdlFileBytes = GetFlatFileContents(gdlFile, true);
+            var merger = new GameDataListMerger();
+
+            var resultBytes = merger.Merge(gdlFileBytes, changelogBytes);
+
+            WriteFlatFileContents(gdlFile, resultBytes, true);
+
+            AnsiConsole.MarkupLineInterpolated($"» [green]Merged changelog into {gdlFile}[/]");
+        }
+
+        // Delete the changelog in the output folder in case it's there
+        var gdlChangelogInOutput = Path.Combine(outputPath, "GameData", "GameDataList.gdlchangelog");
+        if (File.Exists(gdlChangelogInOutput))
+            File.Delete(gdlChangelogInOutput);
+
     }
 
     private void MergeShops(string outputPath, StatusContext context) {

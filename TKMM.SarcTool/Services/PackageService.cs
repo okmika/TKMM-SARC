@@ -245,15 +245,22 @@ internal class PackageService {
 
                 var changelog = gdlMerger.Package(vanillaFile, modFile);
 
-                var targetFilePath = Path.Combine(outputPath, "romfs", "GameData",
-                                                  Path.GetFileName(gdlFile) + ".gdlchangelog");
+                if (changelog.Length == 0) {
+                    AnsiConsole.MarkupLineInterpolated($"- No changes in {gdlFile}");
+                    continue;
+                }
+
+                var targetFilePath = Path.Combine(outputPath, "romfs", "GameData", "GameDataList.gdlchangelog");
 
                 if (!Directory.Exists(Path.GetDirectoryName(targetFilePath)))
                     Directory.CreateDirectory(Path.GetDirectoryName(targetFilePath)!);
                 
                 File.WriteAllBytes(targetFilePath, changelog.ToArray());
-
+                
                 AnsiConsole.MarkupLineInterpolated($"» [green]Created {targetFilePath}[/]");
+                
+                // Only need one change log
+                break;
             } catch {
                 AnsiConsole.MarkupLineInterpolated($"X [red]Failed to process GDL file {gdlFile} - abort[/]");
                 throw;
