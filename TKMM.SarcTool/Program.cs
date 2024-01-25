@@ -34,7 +34,7 @@ public static class Program {
         MakeAssembleCommand(assembleCommand, verboseOption);
         MakeCompareCommand(compareCommand, verboseOption);
         
-        var pluginCommand = new Command("showplugins");
+        var pluginCommand = new Command("showplugins", "Show a list of loadable plugins");
         pluginCommand.SetHandler(() => ShowPlugins());
         
         var rootCommand = new RootCommand();
