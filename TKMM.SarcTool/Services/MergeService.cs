@@ -68,6 +68,44 @@ internal class MergeService {
         return 0;
     }
 
+    public int ExecuteGdlCompare(string fileOne, string fileTwo, string? configPath) {
+        if (String.IsNullOrWhiteSpace(configPath))
+            configPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                                      "Totk");
+
+        if (!File.Exists(Path.Combine(configPath, "config.json"))) {
+            AnsiConsole.MarkupLineInterpolated($"[red]Could not find config.json in {configPath}\n[bold]Abort.[/][/]");
+            return -1;
+        }
+
+        if (!Initialize(configPath))
+            return -1;
+
+        if (!fileOne.EndsWith(".zs") || !fileTwo.EndsWith(".zs")) {
+            AnsiConsole.MarkupLineInterpolated($"[red]Only compressed (.zs) GameDataList files are supported.[/]");
+            return -1;
+        }
+
+        if (!Path.GetFileName(fileOne).StartsWith("GameDataList.Product") ||
+            !Path.GetFileName(fileTwo).StartsWith("GameDataList.Product")) {
+            AnsiConsole.MarkupLineInterpolated($"[red]You didn't specify a GameDataList file.[/]");
+            return -1;
+        }
+
+        AnsiConsole.Status()
+                   .Spinner(Spinner.Known.Dots2)
+                   .Start($"Comparing GDL: {fileOne} with {fileTwo}", _ => {
+                       var fileOneBytes = GetFlatFileContents(fileOne, true);
+                       var fileTwoBytes = GetFlatFileContents(fileTwo, true);
+
+                       var merger = new GameDataListMerger();
+                       merger.Compare(fileOneBytes, fileTwoBytes);
+                   });
+
+        return 0;
+
+    }
+
     private void InternalFlatMerge(string[] modsList, string basePath, string outputPath) {
         AnsiConsole.MarkupLineInterpolated($"[bold]Merging flat files in mods {String.Join(", ", modsList.Select(l => $"'{l}'"))} into \"{outputPath}\"[/]");
 
@@ -77,9 +115,10 @@ internal class MergeService {
                        foreach (var modFolderName in modsList) {
                            context.Status($"Processing {modFolderName}...");
                            MergeFilesInMod(modFolderName, basePath, outputPath, context);
-                       }
 
-                       context.Status($"Merging shops...");
+                           context.Status($"Processing GameDataList changelogs in {modFolderName}...");
+                           MergeGameDataList(Path.Combine(basePath, modFolderName), outputPath, context);
+                       }
                    });
     }
 
@@ -97,6 +136,7 @@ internal class MergeService {
                            MergeArchivesInMod(modFolderName, basePath, outputPath, context);
                        }
 
+                       context.Status($"Merging shops...");
                        MergeShops(outputPath, context);
                    });
 
@@ -146,6 +186,53 @@ internal class MergeService {
             }
 
             AnsiConsole.MarkupLineInterpolated($"» [green]Merged {filePath} into {pathRelativeToBase}[/]");
+        }
+    }
+
+    private void MergeGameDataList(string modPath, string outputPath, StatusContext statusContext) {
+        statusContext.Status("Merging GameDataList changes");
+
+        var gdlChangelogs = Directory.GetFiles(modPath, "*", SearchOption.AllDirectories)
+                                     .Where(l => l.EndsWith(".zs.gdlchangelog"));
+
+        foreach (var gdlChangelog in gdlChangelogs) {
+            var relativePath = Path.GetRelativePath(modPath, gdlChangelog)
+                                   .Replace("romfs" + Path.DirectorySeparatorChar, "");     // We don't need romfs for this
+            
+            var outputGdl = Path.Combine(outputPath, relativePath)
+                                .Replace(".gdlchangelog", "");
+
+            Memory<byte> sourceBytes;
+
+            if (!Directory.Exists(Path.GetDirectoryName(outputGdl)))
+                Directory.CreateDirectory(Path.GetDirectoryName(outputGdl)!);
+            
+            if (!File.Exists(outputGdl)) {
+                // Copy over the vanilla file for merging
+                var vanillaGdl = Path.Combine(config!.GamePath!,
+                                              relativePath.Replace(".gdlchangelog", "")
+                                                          .Replace($"romfs{Path.DirectorySeparatorChar}", "") // Also replace romfs/ in the path since the dump path already has it
+                );
+
+                if (!File.Exists(vanillaGdl)) {
+                    AnsiConsole.MarkupInterpolated($"X [red]Found GameDataList changelog {gdlChangelog} but did not find vanilla version at {vanillaGdl} - abort[/]");
+                    throw new Exception("Failed to find vanilla GDL file");
+                }
+
+                sourceBytes = GetFlatFileContents(vanillaGdl, true);
+            } else {
+                sourceBytes = GetFlatFileContents(outputGdl, true);
+            }
+
+            var changelogBytes = new Memory<byte>(File.ReadAllBytes(gdlChangelog));
+
+            var merger = new GameDataListMerger();
+            var resultBytes = merger.Merge(sourceBytes, changelogBytes);
+
+            WriteFlatFileContents(outputGdl, resultBytes, true);
+
+            AnsiConsole.MarkupLineInterpolated($"» [green]Merged changelog into {outputGdl}[/]");
+
         }
     }
 

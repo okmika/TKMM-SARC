@@ -2,6 +2,7 @@ using SarcLibrary;
 using Spectre.Console;
 using TKMM.SarcTool.Common;
 using TKMM.SarcTool.Compression;
+using TKMM.SarcTool.Special;
 
 namespace TKMM.SarcTool.Services;
 
@@ -118,6 +119,10 @@ internal class PackageService {
                         AnsiConsole.MarkupLineInterpolated($"[bold]Packaging flat files in {modPath} to {outputPath}[/]");
                         context.Status("Packaging flat files...");
                         PackageFilesInMod(modPath, outputPath, context);
+
+                        AnsiConsole.MarkupLineInterpolated($"[bold]Creating GameDataList changelog[/]");
+                        context.Status("Handling GDL files...");
+                        PackageGameDataList(modPath, outputPath, context);
                    });
         
 
@@ -210,6 +215,54 @@ internal class PackageService {
         return outputContents;
     }
 
+    private void PackageGameDataList(string modPath, string outputPath, StatusContext statusContext) {
+        statusContext.Status("Packaging GameDataList files");
+
+        var gdlFilePath = Path.Combine(modPath, "romfs", "GameData");
+        var files = Directory.GetFiles(gdlFilePath);
+
+        var gdlMerger = new GameDataListMerger();
+
+        foreach (var gdlFile in files) {
+
+            try {
+                if (!Path.GetFileName(gdlFile).StartsWith("GameDataList.Product"))
+                    continue;
+
+                var isCompressed = gdlFile.EndsWith(".zs");
+
+                var vanillaFilePath = Path.Combine(config!.GamePath!, "GameData", Path.GetFileName(gdlFile));
+
+                if (!File.Exists(vanillaFilePath)) {
+                    AnsiConsole.MarkupLineInterpolated($"X [red]Cannot find GDL vanilla file {gdlFile} - abort[/]");
+                    throw new Exception("Failed to find vanilla GameDataList file");
+                }
+
+                var isVanillaCompressed = vanillaFilePath.EndsWith(".zs");
+
+                var vanillaFile = GetFlatFileContents(vanillaFilePath, isVanillaCompressed);
+                var modFile = GetFlatFileContents(gdlFile, isCompressed);
+
+                var changelog = gdlMerger.Package(vanillaFile, modFile);
+
+                var targetFilePath = Path.Combine(outputPath, "romfs", "GameData",
+                                                  Path.GetFileName(gdlFile) + ".gdlchangelog");
+
+                if (!Directory.Exists(Path.GetDirectoryName(targetFilePath)))
+                    Directory.CreateDirectory(Path.GetDirectoryName(targetFilePath)!);
+                
+                File.WriteAllBytes(targetFilePath, changelog.ToArray());
+
+                AnsiConsole.MarkupLineInterpolated($"» [green]Created {targetFilePath}[/]");
+            } catch {
+                AnsiConsole.MarkupLineInterpolated($"X [red]Failed to process GDL file {gdlFile} - abort[/]");
+                throw;
+            }
+
+        }
+
+    }
+
     private void PackageFilesInMod(string modPath, string outputPath, StatusContext statusContext) {
         var filesInModFolder =
             Directory.GetFiles(modPath, "*", SearchOption.AllDirectories);
@@ -223,8 +276,6 @@ internal class PackageService {
         var prefixExclusions = new[] {"GameDataList.Product"};
 
         foreach (var filePath in filesInModFolder) {
-            statusContext.Status($"Processing {filePath}");
-
             if (!supportedFlatExtensions.Any(l => filePath.EndsWith(l)))
                 continue;
 
@@ -236,6 +287,8 @@ internal class PackageService {
 
             if (prefixExclusions.Any(l => Path.GetFileName(filePath).StartsWith(l)))
                 continue;
+
+            statusContext.Status($"Processing {filePath}");
 
             var baseRomfs = Path.Combine(modPath, "romfs");
             var pathRelativeToBase = Path.GetRelativePath(baseRomfs, Path.GetDirectoryName(filePath)!);

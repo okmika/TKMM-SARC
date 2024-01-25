@@ -21,9 +21,10 @@ public static class Program {
     }
 
     private static RootCommand GetCommandLine() {
-        var mergeCommand = new Command("merge");
-        var packageCommand = new Command("package");
-        var assembleCommand = new Command("assemble");
+        var mergeCommand = new Command("merge", "Perform a merge of multiple packaged mods");
+        var packageCommand = new Command("package", "Package up a mod for distribution");
+        var assembleCommand = new Command("assemble", "Collect loose files in a mod and return them to their proper archives");
+        var compareCommand = new Command("comparegdl", "Compare two GameDataList files for differences");
         
 
         var verboseOption = new Option<bool>("--verbose", "Enable verbose output");
@@ -31,6 +32,7 @@ public static class Program {
         MakeMergeCommand(mergeCommand, verboseOption);
         MakePackageCommand(packageCommand, verboseOption);
         MakeAssembleCommand(assembleCommand, verboseOption);
+        MakeCompareCommand(compareCommand, verboseOption);
         
         var pluginCommand = new Command("showplugins");
         pluginCommand.SetHandler(() => ShowPlugins());
@@ -40,12 +42,32 @@ public static class Program {
         rootCommand.Add(packageCommand);
         rootCommand.Add(mergeCommand);
         rootCommand.Add(pluginCommand);
+        rootCommand.Add(compareCommand);
         rootCommand.AddGlobalOption(verboseOption);
         
         
 
         
         return rootCommand;
+    }
+
+    private static void MakeCompareCommand(Command compareCommand, Option<bool> verboseOption) {
+        var files = new Option<string[]>("--files", "Path to the two GDL files to compare") {
+            IsRequired = true,
+            AllowMultipleArgumentsPerToken = true
+        }.LegalFilePathsOnly();
+        
+        var configPath = new Option<string?>(
+                "--config",
+                "Path to the TKMM configuration files (config.json). Default if not specified.")
+            .LegalFileNamesOnly();
+
+        compareCommand.AddOption(files);
+        compareCommand.AddOption(configPath);
+
+        compareCommand.SetHandler((files, configPath) => RunCompare(files, configPath), files, configPath);
+
+
     }
     
     private static void MakeAssembleCommand(Command assembleCommand, Option<bool> verboseOption) {
@@ -215,6 +237,27 @@ public static class Program {
                 result = mergeService.ExecuteFlatMerge(modsToMerge, basePath, outputPath, configPath);
             }
             
+            return result;
+        } catch (Exception exc) {
+            AnsiConsole.WriteException(exc, ExceptionFormats.ShortenPaths | ExceptionFormats.ShortenTypes);
+            return -1;
+        }
+    }
+
+    private static int RunCompare(IEnumerable<string> files, string? configPath) {
+        try {
+            var host = Initialize();
+            var mergeService = host.Services.GetRequiredService<MergeService>();
+
+            var filesArray = files.ToArray();
+
+            if (filesArray.Length != 2) {
+                AnsiConsole.MarkupLineInterpolated($"[red]Need to specify the path to two GDL files - abort[/]");
+                return -1;
+            }
+
+            var result = mergeService.ExecuteGdlCompare(filesArray[0], filesArray[1], configPath);
+
             return result;
         } catch (Exception exc) {
             AnsiConsole.WriteException(exc, ExceptionFormats.ShortenPaths | ExceptionFormats.ShortenTypes);
