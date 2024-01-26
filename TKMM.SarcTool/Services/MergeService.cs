@@ -18,8 +18,8 @@ internal class MergeService {
     private List<ShopsJsonEntry>? shops;
 
     private readonly string[] supportedExtensions = new[] {
-        ".bars", ".bfarc", ".bkres", ".blarc", ".genvb", ".pack", ".ta",
-        ".bars.zs", ".bfarc.zs", ".bkres.zs", ".blarc.zs", ".genvb.zs", ".pack.zs", ".ta.zs"
+        ".bfarc", ".bkres", ".blarc", ".genvb", ".pack", ".ta",
+        ".bfarc.zs", ".bkres.zs", ".blarc.zs", ".genvb.zs", ".pack.zs", ".ta.zs"
     };
 
     public MergeService(ConfigService configService, IHandlerManager handlerManager, IGlobals globals) {
