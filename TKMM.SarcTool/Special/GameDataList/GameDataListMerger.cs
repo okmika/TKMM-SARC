@@ -374,8 +374,17 @@ internal class GameDataListMerger {
                 throw new NotSupportedException($"GDL table {table.Key}: No support for deleting vanilla GDL entries");
             
             if (table.Key == "Bool64bitKey") {
-                var vanillaMapping = vanillaTable.ToDictionary(l => l.GetMap()["Hash"].GetUInt64(), l => l.GetMap());
-                var modifiedMapping = modifiedTable.ToDictionary(l => l.GetMap()["Hash"].GetUInt64(), l => l.GetMap());
+                Dictionary<ulong, BymlMap> vanillaMapping, modifiedMapping;
+
+                try {
+                    vanillaMapping =
+                        vanillaTable.ToDictionary(l => l.GetMap()["Hash"].GetUInt64(), l => l.GetMap());
+                    modifiedMapping =
+                        modifiedTable.ToDictionary(l => l.GetMap()["Hash"].GetUInt64(), l => l.GetMap());
+                } catch (ArgumentException) {
+                    AnsiConsole.MarkupLineInterpolated($"X [red]Duplicate hash found in GDL in table {table.Key}! See the error below for the hash (called a 'key'). Please fix and try again.[/]");
+                    throw;
+                }
 
                 if (!vanillaMapping.Keys.All(l => modifiedMapping.ContainsKey(l)))
                     throw new NotSupportedException("Deleting vanilla entries is not supported");
