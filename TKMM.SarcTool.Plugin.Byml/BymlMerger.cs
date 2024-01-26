@@ -40,18 +40,23 @@ public partial class BymlHandler : ISarcFileHandler {
     }
 
     private BymlArray MergeArray(BymlArray baseNode, BymlArray mergeNode) {
-        var itemHashes = baseNode.Select(l => GetHash(l.ToBinary())).ToHashSet();
-
+        var itemDict = baseNode.ToDictionary(l => GetHash(l.ToBinary()), l => l);
+        
         foreach (var item in mergeNode) {
             if (item.Type == BymlNodeType.String && item.GetString().StartsWith("~DEL~")) {
                 var itemName = item.GetString().Substring(5);
                 if (baseNode.Contains(itemName))
                     baseNode.Remove(itemName);
+            } else if (item.Type == BymlNodeType.Map && item.GetMap().TryGetValue("~DELMAP~", out var delValue)) {
+                var itemHash = GetHash(delValue.ToBinary());
+                if (itemDict.ContainsKey(itemHash))
+                    baseNode.Remove(itemDict[itemHash]);
             } else {
-                if (!itemHashes.Contains(GetHash(item.ToBinary())))
+                if (!itemDict.ContainsKey(GetHash(item.ToBinary())))
                     baseNode.Add(item);
             }
         }
+
         
         return baseNode;
     }
@@ -107,6 +112,13 @@ public partial class BymlHandler : ISarcFileHandler {
     private BymlMap MergeMap(BymlMap baseNode, BymlMap mergeNode) {
 
         foreach (var item in mergeNode) {
+            // Process key deletion
+            if (item.Key.StartsWith("~DEL~") && baseNode.ContainsKey(item.Key.Substring(5))) {
+                baseNode.Remove(item.Key.Substring(5));
+                continue;
+            }
+            
+            // Add new items
             if (!baseNode.TryGetValue(item.Key, out var baseNodeItem)) {
                 baseNode.Add(item.Key, item.Value);
                 continue;

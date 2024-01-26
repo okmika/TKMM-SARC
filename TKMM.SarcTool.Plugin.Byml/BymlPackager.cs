@@ -52,10 +52,14 @@ public partial class BymlHandler {
         for (var i = 0; i < baseNode.Count; i++) {
             var nodeHash = GetHash(baseNode[i].ToBinary());
             if (!nodeItemHashes.Contains(nodeHash)) {
-                nodesToRemove.Add(i);
+                nodesToRemove.Add(baseNode[i]);
 
                 if (baseNode[i].Type == BymlNodeType.String)
                     nodesToAdd.Add("~DEL~" + baseNode[i].GetString());
+                else
+                    nodesToAdd.Add(new BymlMap() {
+                        ["~DELMAP~"] = baseNode[i]
+                    });
             }
         }
 
@@ -159,6 +163,22 @@ public partial class BymlHandler {
             else if (item.Value.Type == baseNodeItem.Type)
                 baseNode[item.Key] = item.Value;
 
+        }
+
+        var nodesToRemove = new List<string>();
+        foreach (var item in baseNode) {
+            
+            if (!mergeNode.TryGetValue(item.Key, out _)) {
+                // Handle a deleted item
+                nodesToRemove.Add(item.Key);
+            }
+        }
+
+        // Remove and re-add with the "~DEL~" prefix so we know to remove the key
+        foreach (var node in nodesToRemove) {
+            var item = baseNode[node];
+            baseNode.Remove(node);
+            baseNode.Add("~DEL~" + node, item);
         }
 
         return baseNode;
