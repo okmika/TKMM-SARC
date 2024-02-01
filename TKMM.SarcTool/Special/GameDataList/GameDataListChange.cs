@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Collections;
 using System.Text;
 
@@ -19,8 +20,7 @@ internal class GameDataListReader : IDisposable, IEnumerable<GameDataListChange>
 
     private GameDataListChange ReadNext() {
         var item = new GameDataListChange();
-
-        item.Type = (GameDataListValueType)reader.ReadByte();
+        
         item.Change = (GameDataListChangeType)reader.ReadByte();
         item.Table = reader.ReadString();
 
@@ -37,14 +37,15 @@ internal class GameDataListReader : IDisposable, IEnumerable<GameDataListChange>
         item.ResetTypeValue = reader.ReadInt32();
         item.Size = reader.ReadUInt32();
 
-        item.Values = ReadValues(item.Type, item.Table);
-        item.DefaultValue = ReadValues(item.Type, item.Table);
+        item.Values = ReadValues(item.Table);
+        item.DefaultValue = ReadValues(item.Table);
 
         var rawValueLength = reader.ReadInt32();
 
         if (rawValueLength == 0) {
             item.RawValues = new string[0];
         } else {
+            item.RawValues = new string[rawValueLength];
             for (int i = 0; i < rawValueLength; i++) {
                 item.RawValues[i] = reader.ReadString();
             }
@@ -54,7 +55,7 @@ internal class GameDataListReader : IDisposable, IEnumerable<GameDataListChange>
         return item;
     }
 
-    private GameDataListValue[] ReadValues(GameDataListValueType valueType, string? table = null) {
+    private GameDataListValue[] ReadValues(string table) {
         var valueLength = reader.ReadInt32();
         var output = new GameDataListValue[valueLength];
 
@@ -64,57 +65,73 @@ internal class GameDataListReader : IDisposable, IEnumerable<GameDataListChange>
             for (int i = 0; i < valueLength; i++) {
                 output[i] = new GameDataListValue();
                 output[i].Change = (GameDataListChangeType)reader.ReadByte();
+                output[i].Type = (GameDataListValueType)reader.ReadByte();
                 output[i].Index = reader.ReadUInt32();
+
+                var valueType = output[i].Type;
 
                 // Handle special cases for different table types
                 if (table == "Struct") {
-                    var length = BitConverter.ToInt32(reader.ReadBytes(4));
+                    var length = reader.ReadInt32();
                     var outputObj = new uint[length];
                     for (int inner = 0; inner < length; inner++)
-                        outputObj[inner] = BitConverter.ToUInt32(reader.ReadBytes(4));
+                        outputObj[inner] = reader.ReadUInt32();
 
                     output[i].Value = outputObj;
                 } else if (table == "Vector2" || table == "Vector3" || table == "Vector2Array" || table == "Vector3Array") {
-                    var length = BitConverter.ToInt32(reader.ReadBytes(4));
+                    var length = reader.ReadInt32();
                     var outputObj = new float[length];
                     for (int inner = 0; inner < length; inner++)
-                        outputObj[inner] = BitConverter.ToSingle(reader.ReadBytes(4));
+                        outputObj[inner] = reader.ReadSingle();
 
                     output[i].Value = outputObj;
                 } else if (table == "BoolExp") {
-                    var length = BitConverter.ToInt32(reader.ReadBytes(4));
+                    var length = reader.ReadInt32();
                     var outputObj = new ulong[length];
                     for (int inner = 0; inner < length; inner++)
-                        outputObj[inner] = BitConverter.ToUInt64(reader.ReadBytes(8));
+                        outputObj[inner] = reader.ReadUInt64();
 
                     output[i].Value = outputObj;
                 } else {
-                    switch (valueType) {
-                        case GameDataListValueType.Boolean:
-                            output[i].Value = BitConverter.ToBoolean(reader.ReadBytes(1));
-                            break;
-                        case GameDataListValueType.Float:
-                            output[i].Value = BitConverter.ToSingle(reader.ReadBytes(4));
-                            break;
-                        case GameDataListValueType.Int32:
-                            output[i].Value = BitConverter.ToInt32(reader.ReadBytes(4));
-                            break;
-                        case GameDataListValueType.Int64:
-                            output[i].Value = BitConverter.ToInt64(reader.ReadBytes(8));
-                            break;
-                        case GameDataListValueType.String:
-                            var length = BitConverter.ToInt32(reader.ReadBytes(4));
-                            var str = Encoding.ASCII.GetString(reader.ReadBytes(length));
-                            output[i].Value = str;
-                            break;
-                        case GameDataListValueType.UInt32:
-                            output[i].Value = BitConverter.ToUInt32(reader.ReadBytes(4));
-                            break;
-                        case GameDataListValueType.UInt64:
-                            output[i].Value = BitConverter.ToUInt32(reader.ReadBytes(8));
-                            break;
-                        default:
-                            throw new Exception("Invalid GDL value type");
+                    var length = reader.ReadInt32();
+
+                    if (length > 0) {
+                        var outputObj = new object[length];
+
+                        for (int inner = 0; inner < length; inner++) {
+                            outputObj[inner] = valueType switch {
+                                GameDataListValueType.Boolean => reader.ReadBoolean(),
+                                GameDataListValueType.Float => reader.ReadSingle(),
+                                GameDataListValueType.Int32 => reader.ReadInt32(),
+                                GameDataListValueType.Int64 => reader.ReadInt64(),
+                                GameDataListValueType.String => reader.ReadString(),
+                                GameDataListValueType.UInt32 => reader.ReadUInt32(),
+                                GameDataListValueType.UInt64 => reader.ReadUInt64(),
+                                _ => throw new Exception("Unknown GDL value type")
+                            };
+                        }
+
+                        output[i].Value = valueType switch {
+                            GameDataListValueType.Boolean => outputObj.Cast<bool>().ToArray(),
+                            GameDataListValueType.Float => outputObj.Cast<float>().ToArray(),
+                            GameDataListValueType.Int32 => outputObj.Cast<int>().ToArray(),
+                            GameDataListValueType.Int64 => outputObj.Cast<long>().ToArray(),
+                            GameDataListValueType.String => outputObj.Cast<string>().ToArray(),
+                            GameDataListValueType.UInt32 => outputObj.Cast<uint>().ToArray(),
+                            GameDataListValueType.UInt64 => outputObj.Cast<ulong>().ToArray(),
+                            _ => throw new Exception("Unknown GDL value type")
+                        };
+                    } else {
+                        output[i].Value = valueType switch {
+                            GameDataListValueType.Boolean => reader.ReadBoolean(),
+                            GameDataListValueType.Float => reader.ReadSingle(),
+                            GameDataListValueType.Int32 => reader.ReadInt32(),
+                            GameDataListValueType.Int64 => reader.ReadInt64(),
+                            GameDataListValueType.String => reader.ReadString(),
+                            GameDataListValueType.UInt32 => reader.ReadUInt32(),
+                            GameDataListValueType.UInt64 => reader.ReadUInt64(),
+                            _ => throw new Exception("Unknown GDL value type")
+                        };
                     }
                 }
             }
@@ -171,7 +188,6 @@ internal class GameDataListWriter : IDisposable {
     }
 
     public void Write(GameDataListChange data) {
-        writer.Write((byte)data.Type);
         writer.Write((byte)data.Change);
         writer.Write(data.Table);
 
@@ -202,15 +218,16 @@ internal class GameDataListWriter : IDisposable {
         recordsWritten++;
     }
 
-    private void WriteValues(GameDataListValue[] values) {
-        if (values == null || values.Length == 0)
+    private void  WriteValues(GameDataListValue[] values) {
+        if (values == null || values.Length == 0) {
             writer.Write(0);
-        else {
+        } else {
             writer.Write(values.Length);
             foreach (var item in values) {
                 writer.Write((byte)item.Change);
+                writer.Write((byte)item.Type);
                 writer.Write(item.Index);
-                writer.Write(item.ToBytes());
+                item.WriteBytesInto(writer);
             }
         }
     }
@@ -235,7 +252,6 @@ internal class GameDataListWriter : IDisposable {
 }
 
 internal class GameDataListChange {
-    public GameDataListValueType Type;
     public GameDataListChangeType Change;
     public string Table;
     public uint Hash32;
@@ -329,84 +345,47 @@ internal class GameDataListChange {
 
 internal class GameDataListValue {
     public GameDataListChangeType Change;
+    public GameDataListValueType Type;
     public uint Index;
     public object Value;
 
-    public string ValueAsString() {
-        return (string)Value;
-    }
-
-    public int ValueAsInt() {
-        return (int)Value;
-    }
-
-    public uint ValueAsUInt() {
-        return (uint)Value;
-    }
-
-    public long ValueAsLong() {
-        return (long)Value;
-    }
-
-    public ulong ValueAsULong() {
-        return (ulong)Value;
-    }
-
-    public bool ValueAsBool() {
-        return (bool)Value;
-    }
-
-    public byte ValueAsByte() {
-        return (byte)Value;
-    }
-
-    public float ValueAsFloat() {
-        return (float)Value;
-    }
-
-    public uint[] ValueAsUIntArray() {
-        return (uint[])Value;
-    }
-
-    public float[] ValueAsFloatArray() {
-        return (float[])Value;
-    }
-
-    public ulong[] ValueAsULongArray() {
-        return (ulong[])Value;
-    }
-
-    public byte[] ToBytes() {
+    public void WriteBytesInto(BinaryWriter writer) {
         if (Value is bool valueBool) {
-            return BitConverter.GetBytes(valueBool);
+            writer.Write(0);
+            writer.Write(valueBool);
         } else if (Value is int valueInt) {
-            return BitConverter.GetBytes(valueInt);
+            writer.Write(0);
+            writer.Write(valueInt);
         } else if (Value is long valueLong) {
-            return BitConverter.GetBytes(valueLong);
+            writer.Write(0);
+            writer.Write(valueLong);
         } else if (Value is uint valueUInt) {
-            return BitConverter.GetBytes(valueUInt);
+            writer.Write(0);
+            writer.Write(valueUInt);
         } else if (Value is ulong valueULong) {
-            return BitConverter.GetBytes(valueULong);
+            writer.Write(0);
+            writer.Write(valueULong);
         } else if (Value is byte valueByte) {
-            return new[] { valueByte };
+            writer.Write(0);
+            writer.Write(valueByte);
         } else if (Value is string valueStr) {
-            return BitConverter.GetBytes(valueStr.Length)
-                               .Concat(Encoding.ASCII.GetBytes(valueStr))
-                               .ToArray();
+            writer.Write(0);
+            writer.Write(valueStr);
         } else if (Value is float valueFloat) {
-            return BitConverter.GetBytes(valueFloat);
+            writer.Write(0);
+            writer.Write(valueFloat);
         } else if (Value is ulong[] valueULongArray) {
-            return BitConverter.GetBytes(valueULongArray.Length)
-                               .Concat(valueULongArray.SelectMany(l => BitConverter.GetBytes(l)))
-                               .ToArray();
+            writer.Write(valueULongArray.Length);
+            foreach (var item in valueULongArray)
+                writer.Write(item);
         } else if (Value is uint[] valueUIntArray) {
-            return BitConverter.GetBytes(valueUIntArray.Length)
-                               .Concat(valueUIntArray.SelectMany(l => BitConverter.GetBytes(l)))
-                               .ToArray();
+            writer.Write(valueUIntArray.Length);
+            foreach (var item in valueUIntArray)
+                writer.Write(item);
         } else if (Value is float[] valueFloatArray) {
-            return BitConverter.GetBytes(valueFloatArray.Length)
-                               .Concat(valueFloatArray.SelectMany(l => BitConverter.GetBytes(l)))
-                               .ToArray();
+            writer.Write(valueFloatArray.Length);
+            foreach (var item in valueFloatArray)
+                writer.Write(item);
         } else {
             throw new Exception("Type not supported");
         }
@@ -423,6 +402,7 @@ internal enum GameDataListChangeType : byte {
 }
 
 internal enum GameDataListValueType : byte {
+    Unknown,
     String,
     Boolean,
     Int32,

@@ -168,7 +168,7 @@ internal class GameDataListMerger {
             var itemArray = item["Values"].GetArray();
             var changeArray = change.Values;
 
-            WriteSubArray(changeArray, table, itemArray, hash, "Values");
+            WriteValueArray(changeArray, itemArray);
         } else if (table == "Float") {
             item["DefaultValue"] = (float)change.DefaultValue[0].Value;
         } else if (table == "FloatArray") {
@@ -311,6 +311,8 @@ internal class GameDataListMerger {
             return new Byml(valueString);
         else if (value is int valueInt)
             return new Byml(valueInt);
+        else if (value is long valueLong)
+            return new Byml(valueLong);
         else
             throw new Exception("Unknown value type");
     }
@@ -513,7 +515,6 @@ internal class GameDataListMerger {
         var change = new GameDataListChange();
         var isArray = IsArrayTable(table);
         change.Table = table;
-        change.Type = GetTypeFromTable(table);
 
         if (table == "Bool64bitKey")
             change.Hash64 = item["Hash"].GetUInt64();
@@ -534,11 +535,11 @@ internal class GameDataListMerger {
             change.Size = size.GetUInt32();
 
         if (item.TryGetValue("DefaultValue", out var defaultValue)) {
-            change.DefaultValue = GetValues(defaultValue, change.Type, table, isArray);
+            change.DefaultValue = GetValues(defaultValue, table, isArray);
         }
 
         if (item.TryGetValue("Values", out var values)) {
-            change.Values = GetValues(values, change.Type, table, true);
+            change.Values = GetValues(values, table, true);
         }
 
         if (item.TryGetValue("RawValues", out var rawValues)) {
@@ -549,14 +550,17 @@ internal class GameDataListMerger {
 
     }
 
-    private GameDataListValue[] GetValues(Byml values, GameDataListValueType valueType, string table, bool isArray) {
+    private GameDataListValue[] GetValues(Byml values, string table, bool isArray) {
         List<GameDataListValue> output = new List<GameDataListValue>();
 
         if (table == "Struct") {
             var index = 0u;
             foreach (var item in values.GetArray()) {
                 var itemMap = item.GetMap();
-                var newValue = new GameDataListValue();
+                var newValue = new GameDataListValue() {
+                    Type = GameDataListValueType.UInt64
+                };
+                
                 newValue.Value = new[] {itemMap["Hash"].GetUInt32(), itemMap["Value"].GetUInt32()};
                 newValue.Index = index;
 
@@ -567,7 +571,8 @@ internal class GameDataListMerger {
         } else if (table == "Vector2") {
             var itemMap = values.GetMap();
             output.Add(new GameDataListValue() {
-                Value = new[] {itemMap["x"].GetFloat(), itemMap["y"].GetFloat()}
+                Value = new[] {itemMap["x"].GetFloat(), itemMap["y"].GetFloat()},
+                Type = GameDataListValueType.Float
             });
         } else if (table == "Vector2Array") {
             var index = 0u;
@@ -575,6 +580,7 @@ internal class GameDataListMerger {
                 var itemMap = item.GetMap();
                 output.Add(new GameDataListValue() {
                     Value = new[] {itemMap["x"].GetFloat(), itemMap["y"].GetFloat()},
+                    Type = GameDataListValueType.Float,
                     Index = index
                 });
 
@@ -583,7 +589,8 @@ internal class GameDataListMerger {
         } else if (table == "Vector3") {
             var itemMap = values.GetMap();
             output.Add(new GameDataListValue() {
-                Value = new[] {itemMap["x"].GetFloat(), itemMap["y"].GetFloat(), itemMap["z"].GetFloat()}
+                Value = new[] {itemMap["x"].GetFloat(), itemMap["y"].GetFloat(), itemMap["z"].GetFloat()},
+                Type = GameDataListValueType.Float
             });
         } else if (table == "Vector3Array") {
             var index = 0u;
@@ -591,7 +598,8 @@ internal class GameDataListMerger {
                 var itemMap = item.GetMap();
                 output.Add(new GameDataListValue() {
                     Value = new[] {itemMap["x"].GetFloat(), itemMap["y"].GetFloat(), itemMap["z"].GetFloat()},
-                    Index = index
+                    Index = index,
+                    Type = GameDataListValueType.Float
                 });
 
                 index++;
@@ -602,7 +610,8 @@ internal class GameDataListMerger {
                 var itemArray = item.GetArray();
                 output.Add(new GameDataListValue() {
                     Value = itemArray.Select(l => l.GetUInt64()).ToArray(),
-                    Index = index
+                    Index = index,
+                    Type = GameDataListValueType.UInt64
                 });
 
                 index++;
@@ -624,14 +633,14 @@ internal class GameDataListMerger {
         } else if (isArray) {
             var index = 0u;
             foreach (var item in values.GetArray()) {
-                var newValue = GetValue(item, valueType);
+                var newValue = GetValue(item, GetTypeFromTable(table));
                 newValue.Index = index;
 
                 output.Add(newValue);
                 index++;
             }
         } else {
-            output.Add(GetValue(values, valueType));
+            output.Add(GetValue(values, GetTypeFromTable(table)));
         }
 
         return output.ToArray();
@@ -650,6 +659,8 @@ internal class GameDataListMerger {
             GameDataListValueType.UInt64 => value.GetUInt64(),
             _ => throw new NotSupportedException($"Unsupported value type {valueType}")
         };
+
+        outputValue.Type = valueType;
 
         return outputValue;
     }
