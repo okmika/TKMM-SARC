@@ -219,6 +219,10 @@ internal class PackageService {
         statusContext.Status("Packaging GameDataList files");
 
         var gdlFilePath = Path.Combine(modPath, "romfs", "GameData");
+
+        if (!Directory.Exists(gdlFilePath))
+            return;
+        
         var files = Directory.GetFiles(gdlFilePath);
 
         var gdlMerger = new GameDataListMerger();

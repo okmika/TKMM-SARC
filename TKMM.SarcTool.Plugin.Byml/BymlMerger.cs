@@ -40,22 +40,40 @@ public partial class BymlHandler : ISarcFileHandler {
     }
 
     private BymlArray MergeArray(BymlArray baseNode, BymlArray mergeNode) {
-        var itemDict = baseNode.ToDictionary(l => GetHash(l.ToBinary()), l => l);
-        
+        // Handle arrays of any other type (usually primitives)
+        var toDelete = new List<Byml>();
         foreach (var item in mergeNode) {
-            if (item.Type == BymlNodeType.String && item.GetString().StartsWith("~DEL~")) {
-                var itemName = item.GetString().Substring(5);
-                if (baseNode.Contains(itemName))
-                    baseNode.Remove(itemName);
-            } else if (item.Type == BymlNodeType.Map && item.GetMap().TryGetValue("~DELMAP~", out var delValue)) {
-                var itemHash = GetHash(delValue.ToBinary());
-                if (itemDict.ContainsKey(itemHash))
-                    baseNode.Remove(itemDict[itemHash]);
-            } else {
-                if (!itemDict.ContainsKey(GetHash(item.ToBinary())))
-                    baseNode.Add(item);
+            if (item.Type == BymlNodeType.Map) {
+                var itemMap = item.GetMap();
+                if (itemMap.TryGetValue("~ADD~", out var addValue)) {
+                    baseNode.Add(addValue);
+                } else if (itemMap.TryGetValue("~MOD~", out var modValue)) {
+                    var index = itemMap["~INDEX~"].GetInt();
+
+                    // We're modifying an index value that doesn't exist - insert the modded value at the end
+                    if (index >= baseNode.Count) {
+                        baseNode.Add(modValue);
+                        continue;
+                    }
+
+                    baseNode[index] = modValue;
+                } else if (itemMap.TryGetValue("~DEL~", out var _)) {
+                    var index = itemMap["~INDEX~"].GetInt();
+
+                    // We're deleting an index value that doesn't exist - skip
+                    if (index >= baseNode.Count)
+                        continue;
+
+                    toDelete.Add(baseNode[index]);
+                }
             }
         }
+
+        foreach (var node in toDelete)
+            baseNode.Remove(node);
+    
+        
+        
 
         
         return baseNode;

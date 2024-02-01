@@ -35,39 +35,67 @@ public partial class BymlHandler {
     }
 
     private Byml PackageArray(BymlArray baseNode, BymlArray mergeNode) {
-        var baseItemHashes = baseNode.Select(l => GetHash(l.ToBinary())).ToList();
-        var nodeItemHashes = mergeNode.Select(l => GetHash(l.ToBinary())).ToHashSet();
-                
+
+        var arrayContentsType = baseNode.Any() ? baseNode.First().Type :
+            mergeNode.Any() ? mergeNode.First().Type :
+            BymlNodeType.Null;
+
+        if (arrayContentsType == BymlNodeType.Null)
+            return baseNode;
+
+    
+        // All other node types are treated as a 1-for-1 index comparison
         var nodesToRemove = new List<Byml>();
         var nodesToAdd = new List<Byml>();
+        
+        // Add & Edit
+        for (int i = 0; i < mergeNode.Count; i++) {
+            if (i >= baseNode.Count) {
+                // Adding
+                nodesToAdd.Add(new BymlMap() {
+                    ["~ADD~"] = mergeNode[i]
+                });
+            } else {
+                // Edits
+                var identical = GetHash(mergeNode[i].ToBinary()) == GetHash(baseNode[i].ToBinary());
 
-        foreach (var node in mergeNode) {
-            var nodeHash = GetHash(node.ToBinary());
-            if (baseItemHashes.Contains(nodeHash))
-                nodesToRemove.Add(baseNode[baseItemHashes.IndexOf(nodeHash)]);
-            else if (!baseItemHashes.Contains(nodeHash))
-                nodesToAdd.Add(node);
+                Byml modNode;
+                if (!identical && arrayContentsType == BymlNodeType.Map) {
+                    modNode = MergeMap(baseNode[i].GetMap(), mergeNode[i].GetMap());
+                } else if (!identical && arrayContentsType == BymlNodeType.HashMap32) {
+                    modNode = MergeHashTable(baseNode[i].GetHashMap32(), mergeNode[i].GetHashMap32());
+                } else if (!identical && arrayContentsType == BymlNodeType.HashMap64) {
+                    modNode = MergeHashTable(baseNode[i].GetHashMap64(), mergeNode[i].GetHashMap64());
+                } else {
+                    modNode = mergeNode[i];
+                }
+
+                if (!identical) {
+                    baseNode[i] = new BymlMap() {
+                        ["~MOD~"] = modNode,
+                        ["~INDEX~"] = i
+                    };
+                } else {
+                    nodesToRemove.Add(baseNode[i]);
+                }
+            }
         }
-
-        for (var i = 0; i < baseNode.Count; i++) {
-            var nodeHash = GetHash(baseNode[i].ToBinary());
-            if (!nodeItemHashes.Contains(nodeHash)) {
-                nodesToRemove.Add(baseNode[i]);
-
-                if (baseNode[i].Type == BymlNodeType.String)
-                    nodesToAdd.Add("~DEL~" + baseNode[i].GetString());
-                else
-                    nodesToAdd.Add(new BymlMap() {
-                        ["~DELMAP~"] = baseNode[i]
-                    });
+        
+        // Deletions
+        if (baseNode.Count > mergeNode.Count) {
+            for (int i = mergeNode.Count; i < baseNode.Count; i++) {
+                nodesToAdd.Add(new BymlMap() {
+                    ["~DEL~"] = baseNode[i],
+                    ["~INDEX~"] = i
+                });
             }
         }
 
-        foreach (var index in nodesToRemove)
-            baseNode.Remove(index);
-
         foreach (var node in nodesToAdd)
             baseNode.Add(node);
+        foreach (var node in nodesToRemove)
+            baseNode.Remove(node);
+    
 
         return baseNode;
     }
