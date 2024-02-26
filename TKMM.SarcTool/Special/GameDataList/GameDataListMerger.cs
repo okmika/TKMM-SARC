@@ -376,18 +376,9 @@ internal class GameDataListMerger {
                 throw new NotSupportedException($"GDL table {table.Key}: No support for deleting vanilla GDL entries");
             
             if (table.Key == "Bool64bitKey") {
-                Dictionary<ulong, BymlMap> vanillaMapping, modifiedMapping;
-
-                try {
-                    vanillaMapping =
-                        vanillaTable.ToDictionary(l => l.GetMap()["Hash"].GetUInt64(), l => l.GetMap());
-                    modifiedMapping =
-                        modifiedTable.ToDictionary(l => l.GetMap()["Hash"].GetUInt64(), l => l.GetMap());
-                } catch (ArgumentException) {
-                    AnsiConsole.MarkupLineInterpolated($"X [red]Duplicate hash found in GDL in table {table.Key}! See the error below for the hash (called a 'key'). Please fix and try again.[/]");
-                    throw;
-                }
-
+                var vanillaMapping = MakeDictionary64(vanillaTable);
+                var modifiedMapping = MakeDictionary64(modifiedTable);
+           
                 if (!vanillaMapping.Keys.All(l => modifiedMapping.ContainsKey(l)))
                     throw new NotSupportedException("Deleting vanilla entries is not supported");
 
@@ -427,8 +418,8 @@ internal class GameDataListMerger {
                     }
                 }
             } else {
-                var vanillaMapping = vanillaTable.ToDictionary(l => l.GetMap()["Hash"].GetUInt32(), l => l.GetMap());
-                var modifiedMapping = modifiedTable.ToDictionary(l => l.GetMap()["Hash"].GetUInt32(), l => l.GetMap());
+                var vanillaMapping = MakeDictionary32(vanillaTable);
+                var modifiedMapping = MakeDictionary32(modifiedTable);
 
                 if (!vanillaMapping.Keys.All(l => modifiedMapping.ContainsKey(l)))
                     throw new NotSupportedException("Deleting vanilla entries is not supported");
@@ -471,6 +462,30 @@ internal class GameDataListMerger {
         }
 
         return changes;
+    }
+
+    private Dictionary<uint, BymlMap> MakeDictionary32(BymlArray array) {
+        var output = new Dictionary<uint, BymlMap>();
+        foreach (var element in array) {
+            var elementMap = element.GetMap();
+            var hash = elementMap["Hash"].GetUInt32();
+
+            output.TryAdd(hash, elementMap);
+        }
+
+        return output;
+    }
+
+    private Dictionary<ulong, BymlMap> MakeDictionary64(BymlArray array) {
+        var output = new Dictionary<ulong, BymlMap>();
+        foreach (var element in array) {
+            var elementMap = element.GetMap();
+            var hash = elementMap["Hash"].GetUInt64();
+
+            output.TryAdd(hash, elementMap);
+        }
+
+        return output;
     }
 
     private GameDataListChange? ReconcileChanges(Byml modified, Byml vanilla, string table) {
