@@ -39,13 +39,13 @@ internal class ShopsMerger {
             var key = $"Component/ShopParam/{shop.Actor}.game__component__ShopParam.bgyml";
 
             if (!sarc.ContainsKey(key)) {
-                AnsiConsole.MarkupLineInterpolated($"! [yellow]{shop.ArchivePath} does not contain shop param bgyml. Skipping.");
+                AnsiConsole.MarkupLineInterpolated($"! [yellow]{shop.ArchivePath} does not contain shop param bgyml. Skipping.[/]");
                 continue;
             }
 
             var shopsByml = Byml.FromBinary(sarc[key]);
             if (shopsByml.Type != BymlNodeType.Map) {
-                AnsiConsole.MarkupLineInterpolated($"! [yellow]Shop for {shop.Actor} is not a map. Skipping.");
+                AnsiConsole.MarkupLineInterpolated($"! [yellow]Shop for {shop.Actor} is not a map. Skipping.[/]");
                 continue;
             }
 
@@ -76,7 +76,7 @@ internal class ShopsMerger {
                 AnsiConsole.MarkupLineInterpolated($"- {shop.Actor} added {wroteCount} overflow items");
 
             if (overflowEntries.Count > 0 && shops.Count == 0 && allShops.Count == 0) {
-                AnsiConsole.MarkupLineInterpolated($"X [red]Shop items overflow exceeds shops. Discarding {overflowEntries.Count} shop entries.");
+                AnsiConsole.MarkupLineInterpolated($"X [red]Shop items overflow exceeds shops. Discarding {overflowEntries.Count} shop entries.[/]");
             } else if (overflowEntries.Count > 0 && shops.Count == 0) {
                 if (GetEntryForShop == null)
                     throw new Exception("No shop resolver specified");
