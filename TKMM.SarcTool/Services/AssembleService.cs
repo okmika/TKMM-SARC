@@ -271,9 +271,16 @@ public class AssembleService {
         Span<byte> sourceFileContents;
         if (isCompressed) {
             // Need to decompress the file first
+            var type = CompressionType.Common;
+
+            // Change compression type
+            if (isPackFile)
+                type = CompressionType.Pack;
+            else if (archivePath.Contains("bcett", StringComparison.OrdinalIgnoreCase))
+                type = CompressionType.Bcett;
+            
             var compressedContents = File.ReadAllBytes(archivePath).AsSpan();
-            sourceFileContents = compression.Decompress(compressedContents,
-                                                        isPackFile ? CompressionType.Pack : CompressionType.Common);
+            sourceFileContents = compression.Decompress(compressedContents, type);
         } else {
             sourceFileContents = File.ReadAllBytes(archivePath).AsSpan();
         }
@@ -289,10 +296,15 @@ public class AssembleService {
         sarc.Write(memoryStream);
 
         if (isCompressed) {
-            File.WriteAllBytes(archivePath,
-                               compression.Compress(memoryStream.ToArray(),
-                                                    isPackFile ? CompressionType.Pack : CompressionType.Common)
-                                          .ToArray());
+            var type = CompressionType.Common;
+
+            // Change compression type
+            if (isPackFile)
+                type = CompressionType.Pack;
+            else if (archivePath.Contains("bcett", StringComparison.OrdinalIgnoreCase))
+                type = CompressionType.Bcett;
+            
+            File.WriteAllBytes(archivePath, compression.Compress(memoryStream.ToArray(), type).ToArray());
         } else {
             File.WriteAllBytes(archivePath, memoryStream.ToArray());
         }

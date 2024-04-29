@@ -364,9 +364,16 @@ internal class PackageService {
         sarc.Write(memoryStream);
 
         if (isCompressed) {
+            var type = CompressionType.Common;
+
+            // Change compression type
+            if (isPackFile)
+                type = CompressionType.Pack;
+            else if (archivePath.Contains("bcett", StringComparison.OrdinalIgnoreCase))
+                type = CompressionType.Bcett;
+            
             File.WriteAllBytes(archivePath,
-                               compression.Compress(memoryStream.ToArray(),
-                                                    isPackFile ? CompressionType.Pack : CompressionType.Common)
+                               compression.Compress(memoryStream.ToArray(), type)
                                           .ToArray());
         } else {
             File.WriteAllBytes(archivePath, memoryStream.ToArray());
@@ -380,9 +387,16 @@ internal class PackageService {
         Span<byte> sourceFileContents;
         if (isCompressed) {
             // Need to decompress the file first
+            var type = CompressionType.Common;
+
+            // Change compression type
+            if (isPackFile)
+                type = CompressionType.Pack;
+            else if (archivePath.Contains("bcett", StringComparison.OrdinalIgnoreCase))
+                type = CompressionType.Bcett;
+            
             var compressedContents = File.ReadAllBytes(archivePath).AsSpan();
-            sourceFileContents = compression.Decompress(compressedContents,
-                                                        isPackFile ? CompressionType.Pack : CompressionType.Common);
+            sourceFileContents = compression.Decompress(compressedContents, type);
         } else {
             sourceFileContents = File.ReadAllBytes(archivePath).AsSpan();
         }
@@ -397,8 +411,14 @@ internal class PackageService {
         Span<byte> sourceFileContents;
         if (isCompressed) {
             // Need to decompress the file first
+            var type = CompressionType.Common;
+
+            // Change compression type
+            if (filePath.Contains("bcett", StringComparison.OrdinalIgnoreCase))
+                type = CompressionType.Bcett;
+            
             var compressedContents = File.ReadAllBytes(filePath).AsSpan();
-            sourceFileContents = compression.Decompress(compressedContents, CompressionType.Common);
+            sourceFileContents = compression.Decompress(compressedContents, type);
         } else {
             sourceFileContents = File.ReadAllBytes(filePath).AsSpan();
         }
@@ -411,8 +431,14 @@ internal class PackageService {
             throw new Exception("Compression not loaded");
 
         if (isCompressed) {
+            var type = CompressionType.Common;
+
+            // Change compression type
+            if (filePath.Contains("bcett", StringComparison.OrdinalIgnoreCase))
+                type = CompressionType.Bcett;
+            
             File.WriteAllBytes(filePath,
-                               compression.Compress(contents.ToArray(), CompressionType.Common).ToArray());
+                               compression.Compress(contents.ToArray(), type).ToArray());
         } else {
             File.WriteAllBytes(filePath, contents.ToArray());
         }
@@ -491,9 +517,16 @@ internal class PackageService {
         Span<byte> fileContents;
         if (isCompressed) {
             // Need to decompress the file first
+            var type = CompressionType.Common;
+
+            // Change compression type
+            if (isPackFile)
+                type = CompressionType.Pack;
+            else if (archivePath.Contains("bcett", StringComparison.OrdinalIgnoreCase))
+                type = CompressionType.Bcett;
+            
             var compressedContents = File.ReadAllBytes(archivePath).AsSpan();
-            fileContents = compression!.Decompress(compressedContents,
-                                                  isPackFile ? CompressionType.Pack : CompressionType.Common);
+            fileContents = compression!.Decompress(compressedContents, type);
         } else {
             fileContents = File.ReadAllBytes(archivePath).AsSpan();
         }
