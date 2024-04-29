@@ -378,9 +378,10 @@ internal class GameDataListMerger {
             if (table.Key == "Bool64bitKey") {
                 var vanillaMapping = MakeDictionary64(vanillaTable);
                 var modifiedMapping = MakeDictionary64(modifiedTable);
-           
-                if (!vanillaMapping.Keys.All(l => modifiedMapping.ContainsKey(l)))
-                    throw new NotSupportedException("Deleting vanilla entries is not supported");
+
+                if (!vanillaMapping.Keys.All(l => modifiedMapping.ContainsKey(l))) {
+                    AnsiConsole.MarkupLine("! [yellow]GDL deletes a vanilla key - this is technically not supported but we're ignoring it![/]");
+                }
 
                 var index = 0;
                 foreach (var item in modifiedTable) {
@@ -422,7 +423,7 @@ internal class GameDataListMerger {
                 var modifiedMapping = MakeDictionary32(modifiedTable);
 
                 if (!vanillaMapping.Keys.All(l => modifiedMapping.ContainsKey(l)))
-                    throw new NotSupportedException("Deleting vanilla entries is not supported");
+                    AnsiConsole.MarkupLine("! [yellow]GDL deletes a vanilla key - this is technically not supported but we're ignoring it![/]");
 
                 var index = 0;
                 foreach (var item in modifiedTable) {
