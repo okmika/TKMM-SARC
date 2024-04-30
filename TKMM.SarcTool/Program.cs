@@ -134,7 +134,7 @@ public static class Program {
 
     private static void MakeMergeCommand(Command mergeCommand, Option<bool> verboseOption) {
         var mergeCommandModsOption = new Option<IEnumerable<string>>(
-            "--mods", "A list of mod folder names, within the base mod folder, to merge, in order of priority") {
+            "--mods", "A list of mod folder names, within the base mod folder, to merge, in order of priority (lowest to highest)") {
             IsRequired = true,
             AllowMultipleArgumentsPerToken = true,
         };
@@ -221,9 +221,7 @@ public static class Program {
             
             // Set global verbosity
             (globals as Globals)!.Verbose = verbose;
-
-            // Reverse the order of the mods because we need to process the lowest priority mod first
-            var modsToMerge = modsList.ToArray().Reverse();
+            var modsToMerge = modsList.ToArray();
 
             int result = 0;
             if (processMode == ProcessMode.All) {

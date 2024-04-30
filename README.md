@@ -116,7 +116,7 @@ Usage:
 
 Options:
   --base <base> (REQUIRED)      The base folder path containing the mod subfolders
-  --mods <mods> (REQUIRED)      A list of mod folder names, within the base mod folder, to merge, in order of priority
+  --mods <mods> (REQUIRED)      A list of mod folder names, within the base mod folder, to merge, in order of priority, from lowest to highest
   --output <output> (REQUIRED)  Merged mods output directory
   --config <config>             Path to the TKMM config json. Default if not specified.
   --process <All|Archive|Flat>  Specify what type of merge to perform
