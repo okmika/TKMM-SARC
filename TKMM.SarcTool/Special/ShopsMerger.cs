@@ -1,4 +1,5 @@
 using BymlLibrary;
+using Revrs;
 using SarcLibrary;
 using Spectre.Console;
 using TKMM.SarcTool.Services;
@@ -34,7 +35,7 @@ internal class ShopsMerger {
                 allShops.Remove(shop.Actor);
             
             context.Status($"Processing shop for {shop.Actor}...");
-            var sarcBin = mergeService.GetFileContents(shop.ArchivePath, true, true);
+            var sarcBin = mergeService.GetFileContents(shop.ArchivePath, true, true).ToArray();
             var sarc = Sarc.FromBinary(sarcBin);
             var key = $"Component/ShopParam/{shop.Actor}.game__component__ShopParam.bgyml";
 
@@ -61,7 +62,7 @@ internal class ShopsMerger {
                 if (verbose)
                     AnsiConsole.MarkupLineInterpolated($"- {shop.Actor} overflowed {goodsToOverflow.Count}");
 
-                sarc[key] = shopsByml.ToBinary();
+                sarc[key] = shopsByml.ToBinary(Endianness.Little);
                 mergeService.WriteFileContents(shop.ArchivePath, sarc, true, true);
             }
             
@@ -87,7 +88,7 @@ internal class ShopsMerger {
             } 
 
             if (wroteCount > 0) {
-                sarc[key] = shopsByml.ToBinary();
+                sarc[key] = shopsByml.ToBinary(Endianness.Little);
                 mergeService.WriteFileContents(shop.ArchivePath, sarc, true, true);
             }
         }

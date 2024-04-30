@@ -92,7 +92,7 @@ public class AssembleService {
 
         var isCompressed = archivePath.EndsWith(".zs");
         var archiveContents = GetFileContents(archivePath, isCompressed, true);
-        var sarc = Sarc.FromBinary(archiveContents);
+        var sarc = Sarc.FromBinary(archiveContents.ToArray());
 
         var isFileCompressed = filePath.EndsWith(".zs");
         var fileContents = GetFileContents(filePath, isFileCompressed, false);
@@ -151,7 +151,7 @@ public class AssembleService {
 
             try {
                 var archiveContents = GetFileContents(file, isCompressed, true);
-                var sarc = Sarc.FromBinary(archiveContents);
+                var sarc = Sarc.FromBinary(archiveContents.ToArray());
 
                 foreach (var key in sarc.Keys)
                     archiveMappings.TryAdd(key, relativeArchivePath);

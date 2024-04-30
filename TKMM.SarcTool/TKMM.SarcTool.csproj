@@ -16,13 +16,13 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="BymlLibrary" Version="2.1.2" />
+      <PackageReference Include="BymlLibrary" Version="2.1.11" />
       <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
       <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
       <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="8.0.0" />
       <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
-      <PackageReference Include="Revrs" Version="1.0.1" />
-      <PackageReference Include="SarcLibrary" Version="3.0.4" />
+      <PackageReference Include="Revrs" Version="1.0.5" />
+      <PackageReference Include="SarcLibrary" Version="3.1.2" />
       <PackageReference Include="Spectre.Console" Version="0.48.0" />
       <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
       <PackageReference Include="System.IO.Hashing" Version="8.0.0" />

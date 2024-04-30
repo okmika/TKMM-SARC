@@ -1,5 +1,6 @@
 using BymlLibrary;
 using BymlLibrary.Nodes.Containers;
+using Revrs;
 using Spectre.Console;
 
 namespace TKMM.SarcTool.Special;
@@ -58,7 +59,7 @@ internal class GameDataListMerger {
             WriteChange(change, change.Table, table, tableDict);
         }
 
-        return output.ToBinary();
+        return output.ToBinary(Endianness.Little);
     }
 
     public Memory<byte> Package(Memory<byte> vanillaBytes, Memory<byte> modifiedBytes) {

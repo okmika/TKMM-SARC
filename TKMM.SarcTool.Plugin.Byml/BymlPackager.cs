@@ -1,6 +1,7 @@
 using BymlLibrary;
 using BymlLibrary.Nodes.Containers;
 using BymlLibrary.Nodes.Containers.HashMap;
+using Revrs;
 using TKMM.SarcTool.Common;
 
 namespace TKMM.SarcTool.Plugin.BymlPlugin;
@@ -31,7 +32,7 @@ public partial class BymlHandler {
             result = baseFile;
         }
 
-        return result.ToBinary();
+        return result.ToBinary(Endianness.Little);
     }
 
     private Byml PackageArray(BymlArray baseNode, BymlArray mergeNode) {
@@ -57,7 +58,8 @@ public partial class BymlHandler {
                 });
             } else {
                 // Edits
-                var identical = GetHash(mergeNode[i].ToBinary()) == GetHash(baseNode[i].ToBinary());
+                var identical = GetHash(mergeNode[i].ToBinary(Endianness.Little)) == GetHash(baseNode[i].ToBinary(
+                    Endianness.Little));
 
                 Byml modNode;
                 if (!identical && arrayContentsType == BymlNodeType.Map) {
@@ -108,8 +110,8 @@ public partial class BymlHandler {
                 continue;
             }
 
-            var baseHash = GetHash(baseNodeItem.ToBinary());
-            var mergeHash = GetHash(item.Value.ToBinary());
+            var baseHash = GetHash(baseNodeItem.ToBinary(Endianness.Little));
+            var mergeHash = GetHash(item.Value.ToBinary(Endianness.Little));
 
             if (baseHash == mergeHash) {
                 baseNode.Remove(item.Key);
@@ -140,8 +142,8 @@ public partial class BymlHandler {
                 continue;
             }
 
-            var baseHash = GetHash(baseNodeItem.ToBinary());
-            var mergeHash = GetHash(item.Value.ToBinary());
+            var baseHash = GetHash(baseNodeItem.ToBinary(Endianness.Little));
+            var mergeHash = GetHash(item.Value.ToBinary(Endianness.Little));
 
             if (baseHash == mergeHash) {
                 baseNode.Remove(item.Key);
@@ -172,8 +174,8 @@ public partial class BymlHandler {
                 continue;
             }
 
-            var baseHash = GetHash(baseNodeItem.ToBinary());
-            var mergeHash = GetHash(item.Value.ToBinary());
+            var baseHash = GetHash(baseNodeItem.ToBinary(Endianness.Little));
+            var mergeHash = GetHash(item.Value.ToBinary(Endianness.Little));
 
             if (baseHash == mergeHash) {
                 baseNode.Remove(item.Key);

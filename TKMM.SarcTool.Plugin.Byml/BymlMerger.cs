@@ -2,6 +2,7 @@ using System.IO.Hashing;
 using BymlLibrary;
 using BymlLibrary.Nodes.Containers;
 using BymlLibrary.Nodes.Containers.HashMap;
+using Revrs;
 using TKMM.SarcTool.Common;
 
 namespace TKMM.SarcTool.Plugin.BymlPlugin;
@@ -36,7 +37,7 @@ public partial class BymlHandler : ISarcFileHandler {
             result = baseFile;
         }
 
-        return result.ToBinary();
+        return result.ToBinary(Endianness.Little);
     }
 
     private BymlArray MergeArray(BymlArray baseNode, BymlArray mergeNode) {

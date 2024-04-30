@@ -147,7 +147,7 @@ internal class PackageService {
         if (IsArchiveIdentical(archivePath, pathRelativeToBase, archiveHash))
             return Span<byte>.Empty;
 
-        var sarc = Sarc.FromBinary(fileContents);
+        var sarc = Sarc.FromBinary(fileContents.ToArray());
         var originalSarc = GetOriginalArchive(Path.GetFileName(archivePath), pathRelativeToBase, isCompressed, isPackFile);
         var isVanillaFile = IsVanillaFile(GetArchiveRelativeFilename(Path.GetFileName(archivePath), pathRelativeToBase));
         var toRemove = new List<string>();
@@ -531,7 +531,7 @@ internal class PackageService {
             fileContents = File.ReadAllBytes(archivePath).AsSpan();
         }
 
-        return Sarc.FromBinary(fileContents);
+        return Sarc.FromBinary(fileContents.ToArray());
     }
 
     private bool Initialize(string configPath, string checksumPath) {

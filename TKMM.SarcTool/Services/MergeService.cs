@@ -401,8 +401,8 @@ internal class MergeService {
         Span<byte> sourceFileContents = GetFileContents(archivePath, isCompressed, isPackFile);
         Span<byte> targetFileContents = GetFileContents(targetArchivePath, isCompressed, isPackFile);
 
-        var sourceSarc = Sarc.FromBinary(sourceFileContents);
-        var targetSarc = Sarc.FromBinary(targetFileContents);
+        var sourceSarc = Sarc.FromBinary(sourceFileContents.ToArray());
+        var targetSarc = Sarc.FromBinary(targetFileContents.ToArray());
 
         foreach (var entry in sourceSarc) {
             if (!targetSarc.ContainsKey(entry.Key)) {
