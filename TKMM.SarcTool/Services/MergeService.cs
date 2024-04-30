@@ -540,10 +540,12 @@ internal class MergeService {
     }
 
     private bool Initialize(string configPath) {
-        shops = configService.GetShops(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "shops.json"));
+        var shopsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "tkmm",
+                                     "shops.json");
+        shops = configService.GetShops(shopsPath);
 
         if (shops.Count == 0)
-            AnsiConsole.MarkupLineInterpolated($"! [yellow]{Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData)} does not include shops.json or it's empty. Shops merging disabled.[/]");
+            AnsiConsole.MarkupLineInterpolated($"! [yellow]{shopsPath} does not exist or it's empty. Shops merging disabled.[/]");
         
         config = configService.GetConfig(Path.Combine(configPath, "config.json"));
 

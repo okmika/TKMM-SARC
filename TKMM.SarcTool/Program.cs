@@ -146,7 +146,7 @@ public static class Program {
 
         var mergeConfigOption =
             new Option<string?>(
-                "--config", "Path to the TKMM configuration files (config.json, shops.json). Default if not specified.");
+                "--config", "Path to the TKMM configuration file (config.json). Default if not specified.");
 
         var mergeCommandOutputOption = new Option<string>("--output", "Merged mods output directory") {
                 IsRequired = true
