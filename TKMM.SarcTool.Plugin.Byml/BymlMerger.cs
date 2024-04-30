@@ -47,6 +47,8 @@ public partial class BymlHandler : ISarcFileHandler {
                 var itemMap = item.GetMap();
                 if (itemMap.TryGetValue("~ADD~", out var addValue)) {
                     baseNode.Add(addValue);
+                } else if (itemMap.TryGetValue("~INSERT~", out var insertValue)) {
+                    baseNode.Insert(0, insertValue);
                 } else if (itemMap.TryGetValue("~MOD~", out var modValue)) {
                     var index = itemMap["~INDEX~"].GetInt();
 
