@@ -117,7 +117,7 @@ public class AssembleService {
         if (!File.Exists(vanillaPath))
             return false;
 
-        File.Copy(vanillaPath, destination);
+        File.Copy(vanillaPath, destination, true);
         return true;
     }
 

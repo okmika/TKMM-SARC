@@ -112,7 +112,7 @@ internal class PackageService {
                                     File.Delete(outputFilePath);
                                 }
 
-                                File.Copy(filePath, outputFilePath);
+                                File.Copy(filePath, outputFilePath, true);
                             }
                         }
 
@@ -316,7 +316,7 @@ internal class PackageService {
 
         // If the vanilla file doesn't exist just copy it over and we're done
         if (!File.Exists(vanillaFilePath)) {
-            File.Copy(filePath, targetFilePath);
+            File.Copy(filePath, targetFilePath, true);
             return;
         }
         
@@ -340,7 +340,7 @@ internal class PackageService {
             if (verboseOutput)
                 AnsiConsole.MarkupLineInterpolated($"! [yellow]{modPath}: No handler for type {fileExtension}, overwriting {Path.GetFileName(filePath)} in {pathRelativeToBase}[/]");
 
-            File.Copy(filePath, targetFilePath);
+            File.Copy(filePath, targetFilePath, true);
         } else {
             var relativeFilename = Path.Combine(pathRelativeToBase, Path.GetFileName(filePath));
 

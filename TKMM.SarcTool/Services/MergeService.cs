@@ -213,7 +213,7 @@ internal class MergeService {
             Directory.CreateDirectory(Path.GetDirectoryName(outputGdl)!);
             
             if (!File.Exists(outputGdl))
-                File.Copy(vanillaFile, outputGdl);
+                File.Copy(vanillaFile, outputGdl, true);
         }
 
         var gdlFiles = Directory.GetFiles(Path.Combine(outputPath, "GameData"))
@@ -255,7 +255,7 @@ internal class MergeService {
             var dumpPath = Path.Combine(config!.GamePath!, "Pack", "Actor", $"{actorName}.pack.zs");
             var target = Path.Combine(outputPath, "Pack", "Actor", $"{actorName}.pack.zs");
 
-            File.Copy(dumpPath, target);
+            File.Copy(dumpPath, target, true);
 
             return new ShopsMerger.ShopMergerEntry(actorName, target);
         };
@@ -291,7 +291,7 @@ internal class MergeService {
 
             // Copy the mod's file to the output if we otherwise failed to copy the file from the dump
             if (!didCopy) {
-                File.Copy(filePath, targetFilePath);
+                File.Copy(filePath, targetFilePath, true);
                 return;
             }
         }
@@ -310,7 +310,7 @@ internal class MergeService {
             if (verboseOutput)
                 AnsiConsole.MarkupLineInterpolated($"! [yellow]{modFolderName}: No handler for type {fileExtension}, overwriting {Path.GetFileName(filePath)} in {pathRelativeToBase}[/]");
 
-            File.Copy(filePath, targetFilePath);
+            File.Copy(filePath, targetFilePath, true);
         } else {
             var relativeFilename = Path.Combine(pathRelativeToBase, Path.GetFileName(filePath));
 
@@ -352,7 +352,7 @@ internal class MergeService {
                 if (File.Exists(targetArchivePath))
                     File.Delete(targetArchivePath);
 
-                File.Copy(filePath, targetArchivePath);
+                File.Copy(filePath, targetArchivePath, true);
             } catch (Exception exc) {
                 AnsiConsole.WriteException(exc, ExceptionFormats.ShortenEverything);
                 AnsiConsole.MarkupLineInterpolated($"X [red]Failed to merge {filePath} - abort[/]");
@@ -389,7 +389,7 @@ internal class MergeService {
             
             // Copy the mod's package to the output if we otherwise failed to copy the file from the dump
             if (!didCopy) {
-                File.Copy(archivePath, targetArchivePath);
+                File.Copy(archivePath, targetArchivePath, true);
                 return;
             }
         }
@@ -532,7 +532,7 @@ internal class MergeService {
             if (verboseOutput)
                 AnsiConsole.MarkupLineInterpolated($"! [yellow]Copying file {originalFile} to {outputFile}[/]");
             
-            File.Copy(originalFile, outputFile);
+            File.Copy(originalFile, outputFile, true);
             return true;
         }
 
