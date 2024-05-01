@@ -1,9 +1,9 @@
 using SarcLibrary;
 using ZstdSharp;
 
-namespace TKMM.SarcTool.Compression;
+namespace TKMM.SarcTool.Core;
 
-public class ZsCompression {
+internal class ZsCompression {
     private const int CompressionLevel = 7;
     private Compressor commonCompressor = new(CompressionLevel);
     private Compressor bcettCompressor = new(CompressionLevel);
@@ -52,7 +52,7 @@ public class ZsCompression {
     }
 }
 
-public enum CompressionType {
+internal enum CompressionType {
     Common,
     Bcett,
     Pack

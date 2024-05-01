@@ -1,12 +1,8 @@
 using System.CommandLine;
+using System.Diagnostics;
 using System.Reflection;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Spectre.Console;
-using TKMM.SarcTool.Common;
-using TKMM.SarcTool.Plugins;
-using TKMM.SarcTool.Services;
+using TKMM.SarcTool.Core;
 
 namespace TKMM.SarcTool;
 
@@ -14,6 +10,7 @@ public static class Program {
 
     public static int Main(string[] args) {
 
+        Trace.Listeners.Add(new ConsoleTraceListener(true));
         PrintBanner();
         
         var rootCommand = GetCommandLine();
@@ -34,19 +31,11 @@ public static class Program {
         MakeAssembleCommand(assembleCommand, verboseOption);
         MakeCompareCommand(compareCommand, verboseOption);
         
-        var pluginCommand = new Command("showplugins", "Show a list of loadable plugins");
-        pluginCommand.SetHandler(() => ShowPlugins());
-        
         var rootCommand = new RootCommand();
         rootCommand.Add(assembleCommand);
         rootCommand.Add(packageCommand);
         rootCommand.Add(mergeCommand);
-        rootCommand.Add(pluginCommand);
         rootCommand.Add(compareCommand);
-        rootCommand.AddGlobalOption(verboseOption);
-        
-        
-
         
         return rootCommand;
     }
@@ -84,10 +73,9 @@ public static class Program {
         assembleCommand.AddOption(assembleCommandModOption);
         assembleCommand.AddOption(assembleCommandConfigOption);
 
-        assembleCommand.SetHandler((modPath, configPath, verbose) =>
-                                       RunAssemble(modPath, configPath, verbose),
-                                   assembleCommandModOption, assembleCommandConfigOption,
-                                   verboseOption);
+        assembleCommand.SetHandler((modPath, configPath) =>
+                                       RunAssemble(modPath, configPath),
+                                   assembleCommandModOption, assembleCommandConfigOption);
     }
 
     private static void MakePackageCommand(Command packageCommand, Option<bool> verboseOption) {
@@ -102,7 +90,7 @@ public static class Program {
             .LegalFilePathsOnly();
 
         var packageCommandVersionsOption = new Option<string[]>("--versions", "Versions to try and package against");
-        packageCommandVersionsOption.SetDefaultValue(new[] {"100", "110", "111", "120", "121"});
+        packageCommandVersionsOption.SetDefaultValue(new[] {"100", "110", "111", "112", "120", "121"});
         packageCommandVersionsOption.AddValidator(val => {
             if (!val.Tokens.All(l => Int32.TryParse(l.Value, out _)))
                 val.ErrorMessage = "Specified versions must be a number.";
@@ -125,11 +113,11 @@ public static class Program {
         packageCommand.AddOption(packageCommandChecksumOption);
         packageCommand.AddOption(packageCommandVersionsOption);
 
-        packageCommand.SetHandler((outputPath, modPath, configPath, checksumPath, versions, verbose) =>
-                                      RunPackage(outputPath, modPath, configPath, checksumPath, versions, verbose),
+        packageCommand.SetHandler((outputPath, modPath, configPath, checksumPath, versions) =>
+                                      RunPackage(outputPath, modPath, configPath, checksumPath, versions),
                                   packageCommandOutputOption,
                                   packageCommandModOption, packageCommandConfigOption, packageCommandChecksumOption,
-                                  packageCommandVersionsOption, verboseOption);
+                                  packageCommandVersionsOption);
     }
 
     private static void MakeMergeCommand(Command mergeCommand, Option<bool> verboseOption) {
@@ -153,159 +141,67 @@ public static class Program {
             }
             .LegalFilePathsOnly();
 
-        var mergeProcessModeOption = new Option<ProcessMode>("--process", "Specify what type of merge to perform");
-
         mergeCommand.AddOption(mergeCommandBaseOption);
         mergeCommand.AddOption(mergeCommandModsOption);
         mergeCommand.AddOption(mergeCommandOutputOption);
         mergeCommand.AddOption(mergeConfigOption);
-        mergeCommand.AddOption(mergeProcessModeOption);
 
-        mergeCommand.SetHandler((modsList, basePath, outputPath, configPath, verbose, processMode) =>
-                                    RunMerge(modsList, basePath, outputPath, configPath, verbose, processMode),
+        mergeCommand.SetHandler((modsList, basePath, outputPath, configPath) =>
+                                    RunMerge(modsList, basePath, outputPath, configPath),
                                 mergeCommandModsOption, mergeCommandBaseOption, mergeCommandOutputOption,
-                                mergeConfigOption, verboseOption, mergeProcessModeOption);
+                                mergeConfigOption);
     }
 
-    private static IHost Initialize() {
-        var hostBuilder = new HostApplicationBuilder(new HostApplicationBuilderSettings() {
-            DisableDefaults = true
-        });
-        
-        // Plugins
-        var pluginManager = new PluginManager();
-        hostBuilder.Services.AddSingleton<IPluginManager>(pluginManager);
-        pluginManager.LoadPlugins(hostBuilder.Services);
-        
-        // Base services
-        var globals = new Globals();
-        hostBuilder.Services.AddSingleton<IGlobals>(globals);
-        hostBuilder.Services.AddTransient<IHandlerManager, HandlerManager>();
-        hostBuilder.Services.AddTransient<MergeService>();
-        hostBuilder.Services.AddTransient<PackageService>();
-        hostBuilder.Services.AddTransient<AssembleService>();
-        hostBuilder.Services.AddTransient<ConfigService>();
-        hostBuilder.Services.AddTransient<ILogger, SpectreConsoleLogger>();
-        
-        // Logging
-        hostBuilder.Logging.ClearProviders();
-
-        return hostBuilder.Build();
-
-    }
-
-    private static int RunAssemble(string modPath, string? configPath, bool verbose) {
+   
+    private static void RunAssemble(string modPath, string? configPath) {
         try {
-            var host = Initialize();
-            var assembleService = host.Services.GetRequiredService<AssembleService>();
-            var globals = host.Services.GetRequiredService<IGlobals>();
-
-            // Set global verbosity
-            (globals as Globals)!.Verbose = verbose;
-
-            var result = assembleService.Assemble(modPath, configPath);
-
-            return result;
+            var assembler = new SarcAssembler(modPath, configPath);
+            assembler.Assemble();
         } catch (Exception exc) {
             AnsiConsole.WriteException(exc, ExceptionFormats.ShortenPaths | ExceptionFormats.ShortenTypes);
-            return -1;
         }
     }
 
-    private static int RunMerge(IEnumerable<string> modsList, string basePath, string outputPath, string? configPath,
-                                bool verbose, ProcessMode processMode) {
+    private static void RunMerge(IEnumerable<string> modsList, string basePath, string outputPath, string? configPath) {
         try {
-            var host = Initialize();
-            var mergeService = host.Services.GetRequiredService<MergeService>();
-            var globals = host.Services.GetRequiredService<IGlobals>();
-            
-            // Set global verbosity
-            (globals as Globals)!.Verbose = verbose;
-            var modsToMerge = modsList.ToArray();
-
-            int result = 0;
-            if (processMode == ProcessMode.All) {
-                result = mergeService.ExecuteArchiveMerge(modsToMerge, basePath, outputPath, configPath);
-                
-                if (result == 0)
-                    result = mergeService.ExecuteFlatMerge(modsToMerge, basePath, outputPath, configPath);
-            } else if (processMode == ProcessMode.Archive) {
-                result = mergeService.ExecuteArchiveMerge(modsToMerge, basePath, outputPath, configPath);
-            } else if (processMode == ProcessMode.Flat) {
-                result = mergeService.ExecuteFlatMerge(modsToMerge, basePath, outputPath, configPath);
-            }
-            
-            return result;
+            var merger = new SarcMerger(modsList, basePath, outputPath, configPath, null);
+            merger.Merge();
         } catch (Exception exc) {
             AnsiConsole.WriteException(exc, ExceptionFormats.ShortenPaths | ExceptionFormats.ShortenTypes);
-            return -1;
         }
     }
 
-    private static int RunCompare(IEnumerable<string> files, string? configPath) {
+    private static void RunCompare(IEnumerable<string> files, string? configPath) {
         try {
-            var host = Initialize();
-            var mergeService = host.Services.GetRequiredService<MergeService>();
-
             var filesArray = files.ToArray();
 
             if (filesArray.Length != 2) {
                 AnsiConsole.MarkupLineInterpolated($"[red]Need to specify the path to two GDL files - abort[/]");
-                return -1;
+                return;
             }
 
-            var result = mergeService.ExecuteGdlCompare(filesArray[0], filesArray[1], configPath);
+            var merger = new SarcMerger(new string[0], Environment.ProcessPath!, Environment.ProcessPath!, configPath, null);
+            var result = merger.HasGdlChanges(filesArray[0], filesArray[1]);
 
-            return result;
+            if (result)
+                AnsiConsole.MarkupLine("[red]Changes detected[/]");
+            else
+                AnsiConsole.MarkupLine("[green]No changes detected[/]");
         } catch (Exception exc) {
             AnsiConsole.WriteException(exc, ExceptionFormats.ShortenPaths | ExceptionFormats.ShortenTypes);
-            return -1;
         }
     }
 
-    private static int RunPackage(string outputPath, string modPath, string? configPath, string? checksumPath,
-                                  string[] versions, bool verbose) {
+    private static void RunPackage(string outputPath, string modPath, string? configPath, string? checksumPath, string[] versions) {
         
         try {
-            var host = Initialize();
-            var packageService = host.Services.GetRequiredService<PackageService>();
-            var globals = host.Services.GetRequiredService<IGlobals>();
-
-            // Set global verbosity
-            (globals as Globals)!.Verbose = verbose;
-
-            var result = packageService.Execute(outputPath, modPath, configPath, checksumPath, versions);
-            return result;
+            var packager = new SarcPackager(outputPath, modPath, configPath, checksumPath, versions);
+            packager.Package();
         } catch (Exception exc) {
             AnsiConsole.WriteException(exc, ExceptionFormats.ShortenPaths | ExceptionFormats.ShortenTypes);
-            return -1;
         }
     }
 
-    private static int ShowPlugins() {
-        try {
-            var host = Initialize();
-            var pluginManager = host.Services.GetRequiredService<IPluginManager>();
-
-            var table = new Table();
-            table.AddColumns("Plugin", "Formats");
-
-            if (!pluginManager.GetPlugins().Any()) {
-                AnsiConsole.Markup("[red]No plugins found. Cannot handle any formats.[/]");
-                return 0;
-            }
-            
-            foreach (var plugin in pluginManager.GetPlugins()) {
-                table.AddRow(plugin.Name, String.Join(", ", plugin.Extensions));
-            }
-
-            AnsiConsole.Write(table);
-            return 0;
-        } catch (Exception exc) {
-            AnsiConsole.WriteException(exc);
-            return -1;
-        }
-    }
     
     private static void PrintBanner() {
         var assembly = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();

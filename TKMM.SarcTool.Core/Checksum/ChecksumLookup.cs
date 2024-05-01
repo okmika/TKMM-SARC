@@ -1,8 +1,8 @@
 using System.Runtime.InteropServices;
 
-namespace TKMM.SarcTool;
+namespace TKMM.SarcTool.Core;
 
-public class ChecksumLookup {
+internal class ChecksumLookup {
     
     private readonly Dictionary<ulong, ulong> checksums;
     

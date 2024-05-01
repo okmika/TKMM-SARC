@@ -55,7 +55,6 @@ Usage:
 Options:
   --mod <mod> (REQUIRED)        Path to the mod to perform the assembly on
   --config <config>             Path to the TKMM configuration files (config.json). Default if not specified.
-  --verbose                     Enable verbose output
   -?, -h, --help                Show help and usage information
 ```
 
@@ -87,8 +86,7 @@ Options:
   --output <output> (REQUIRED)  Merged mods output directory
   --config <config>             Path to the TKMM config json. Default if not specified.
   --checksum <checksum>         Path to the TKMM checksum database. Default if not specified.
-  --versions <versions>         Versions to try and package against [default: 100|110|111|120|121]
-  --verbose                     Enable verbose output
+  --versions <versions>         Versions to try and package against [default: 100|110|111|112|120|121]
   -?, -h, --help                Show help and usage information
 
 ```
@@ -119,40 +117,8 @@ Options:
   --mods <mods> (REQUIRED)      A list of mod folder names, within the base mod folder, to merge, in order of priority, from lowest to highest
   --output <output> (REQUIRED)  Merged mods output directory
   --config <config>             Path to the TKMM config json. Default if not specified.
-  --process <All|Archive|Flat>  Specify what type of merge to perform
-  --verbose                     Enable verbose output
   -?, -h, --help                Show help and usage information
 ```
-
-## Plugins
-
-Smart merging is supported by handlers defined in plugins. 
-
-Currently, we officially support the merging
-of `.byml` and `.bgyml` files with the included BYML plugin. You can write your own plugins to support additional
-file formats, and SarcTool will load your plugin as long as its DLL is in the same folder as the executable, and is named
-appropriately. See below for more information about writing your own plugins.
-
-### Listing Available Plugins
-
-Running SarcTool with the `showplugins` command will show a list of valid, loadable plugins and their supported
-formats. If your custom plugin is not shown when running this command, it will not be used by SarcTool to process
-your file type.
-
-### Creating a Custom Plugin
-
-Create a new C# class library and add a reference to `TKMM.SarcTool.Common`. 
-
-A plugin consists of two parts: the plugin definition and the handler. First, create a new class that derives from
-`SarcPlugin` and implement the required properties. Next, create a new handler class that implements `ISarcFileHandler`.
-This file handler performs all of the operations and returns the merged version of the file to SarcTool.
-
-Take a look at the included BYML Plugin for an example implementation.
-
-In order to ensure your plugin is loaded, make sure your DLL is in the same directory as the SarcTool executable. Its
-name must also start with `TKMM.SarcTool.Plugin` (for example, `TKMM.SarcTool.Plugin.Byml.dll`). If you run the
-`showplugins` command on the SarcTool executable and your plugin is listed, it will be used when processing files 
-that are in the format(s) you support.
 
 ## Miscellaneous Commands
 
