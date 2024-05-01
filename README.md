@@ -97,7 +97,7 @@ Options:
 `SarcTool.exe merge --mods [modlist] --base [base] --output [output]`
 
 - `base`: The path to the folder that holds all of your mods
-- `modlist`: A list of mod folders inside of `base` to merge together, listed in priority (mods listed first have higher priority).
+- `modlist`: A list of mod folders inside of `base` to merge together, listed in priority (in order of lowest to highest priority).
 Higher priority mods will overwrite conflicting options of lower priority mods.
 - `output`: The path to the destination folder you would like the merged mod files to be written to.
 
