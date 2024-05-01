@@ -1,9 +1,9 @@
+using System.Diagnostics;
 using BymlLibrary;
 using BymlLibrary.Nodes.Containers;
 using Revrs;
-using Spectre.Console;
 
-namespace TKMM.SarcTool.Special;
+namespace TKMM.SarcTool.Core;
 
 internal class GameDataListMerger {
 
@@ -19,16 +19,13 @@ internal class GameDataListMerger {
 
 
             if (changes.Count != 0) {
-                AnsiConsole.MarkupLineInterpolated($"[bold]Compare:[/] [red]{changes.Count} change(s) detected![/]");
                 return false;
             }
 
-            AnsiConsole.MarkupLineInterpolated($"[bold]Compare:[/] [green]No changes detected![/]");
             return true;
         } catch (NotSupportedException) {
             // This is only thrown when entries are deleted -- that should be an exception during packaging with
             // a vanilla GDL, but in case of comparing it's just a sign that there's a difference.
-            AnsiConsole.MarkupLineInterpolated($"[bold]Compare:[/] [red]Changes detected![/]");
             return false;
         }
     }
@@ -92,7 +89,9 @@ internal class GameDataListMerger {
         if (!tableDict.TryGetValue(change.Hash32 != 0 ? change.Hash32 : change.Hash64, out var existing)) {
             // Add a new record if we're set up for that
             if (change.Change == GameDataListChangeType.Edit) {
-                AnsiConsole.MarkupLineInterpolated($"Changelog inconsistency: 'Edit' operation on non-existent hash {(change.Hash32 != 0 ? change.Hash32 : change.Hash64)} in table {tableName} - changing to add");
+                Trace.TraceWarning("Changelog inconsistency: 'Edit' operation on non-existent hash {0} in table {1} - changing to add", 
+                                   (change.Hash32 != 0 ? change.Hash32 : change.Hash64), tableName);
+                
                 change.Change = GameDataListChangeType.Add;
             }
 
@@ -102,7 +101,10 @@ internal class GameDataListMerger {
             table.Add(newItem);
         } else {
             if (change.Change == GameDataListChangeType.Add) {
-                AnsiConsole.MarkupLineInterpolated($"Changelog inconsistency: 'Add' operation on existing hash {(change.Hash32 != 0 ? change.Hash32 : change.Hash64)} in table {tableName} - changing to edit");
+                Trace.TraceWarning(
+                    "Changelog inconsistency: 'Add' operation on existent hash {0} in table {1} - changing to edit",
+                    (change.Hash32 != 0 ? change.Hash32 : change.Hash64), tableName);
+                
                 change.Change = GameDataListChangeType.Edit;
                 foreach (var item in change.DefaultValue)
                     item.Change = GameDataListChangeType.Edit;
@@ -267,7 +269,7 @@ internal class GameDataListMerger {
                 throw new Exception("Invalid struct value in changelog");
 
             if (i >= valueArray.Count && change[i].Change == GameDataListChangeType.Edit) {
-                AnsiConsole.MarkupLineInterpolated($"! [yellow]Edit operation cannot update non existent element - changing to add[/]");
+                Trace.TraceWarning("Edit operation cannot update non existent element - changing to add");
                 change[i].Change = GameDataListChangeType.Add;
             }
 
@@ -290,7 +292,7 @@ internal class GameDataListMerger {
 
         for (int i = 0; i < change.Length; i++) {
             if (i >= valueArray.Count && change[i].Change == GameDataListChangeType.Edit) {
-                AnsiConsole.MarkupLineInterpolated($"! [yellow]Edit operation cannot update non existent element - changing to add[/]");
+                Trace.TraceWarning("Edit operation cannot update non existent element - changing to add");
                 change[i].Change = GameDataListChangeType.Add;
             }
             
@@ -321,7 +323,9 @@ internal class GameDataListMerger {
     private void WriteSubArray(GameDataListValue[] changeArray, string table, BymlArray itemArray, ulong hash, string changeArrayDescription) {
         for (int i = 0; i < changeArray.Length; i++) {
             if (changeArray[i].Change == GameDataListChangeType.Edit && i >= itemArray.Count) {
-                AnsiConsole.MarkupLineInterpolated($"! [yellow]Edit operation on hash {hash} in table {table} failed: {changeArrayDescription} element {i} does not exist - assuming add[/]");
+                Trace.TraceWarning("Edit operation on hash {0} in table {1} failed: {2} element {3} does not exist - assuming add",
+                    hash, table, changeArrayDescription, i);
+                
                 changeArray[i].Change = GameDataListChangeType.Add;
             }
 
@@ -381,7 +385,8 @@ internal class GameDataListMerger {
                 var modifiedMapping = MakeDictionary64(modifiedTable);
 
                 if (!vanillaMapping.Keys.All(l => modifiedMapping.ContainsKey(l))) {
-                    AnsiConsole.MarkupLine("! [yellow]GDL deletes a vanilla key - this is technically not supported but we're ignoring it![/]");
+                    Trace.TraceWarning(
+                        "GDL deletes a vanilla key - this is technically not supported but we're ignoring it!");
                 }
 
                 var index = 0;
@@ -415,7 +420,8 @@ internal class GameDataListMerger {
 
                         index++;
                     } catch {
-                        AnsiConsole.MarkupInterpolated($"X [red]Failed to generate changelog: {table.Key} {itemMap["Hash"].GetUInt64()}[/]");
+                        Trace.TraceError("Failed to generate changelog: {0}, {1}", table.Key,
+                                         itemMap["Hash"].GetUInt64());
                         throw;
                     }
                 }
@@ -424,7 +430,8 @@ internal class GameDataListMerger {
                 var modifiedMapping = MakeDictionary32(modifiedTable);
 
                 if (!vanillaMapping.Keys.All(l => modifiedMapping.ContainsKey(l)))
-                    AnsiConsole.MarkupLine("! [yellow]GDL deletes a vanilla key - this is technically not supported but we're ignoring it![/]");
+                    Trace.TraceWarning(
+                        "GDL deletes a vanilla key - this is technically not supported but we're ignoring it!");
 
                 var index = 0;
                 foreach (var item in modifiedTable) {
@@ -456,7 +463,8 @@ internal class GameDataListMerger {
 
                         index++;
                     } catch {
-                        AnsiConsole.MarkupInterpolated($"X [red]Failed to generate changelog: {table.Key} {itemMap["Hash"].GetUInt32()}[/]");
+                        Trace.TraceError("Failed to generate changelog: {0}, {1}", table.Key,
+                                         itemMap["Hash"].GetUInt32());
                         throw;
                     }
                 }

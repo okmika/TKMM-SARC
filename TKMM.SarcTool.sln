@@ -2,9 +2,7 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TKMM.SarcTool", "TKMM.SarcTool\TKMM.SarcTool.csproj", "{84B3E18C-A3DB-4D8D-B71D-18564B8C7843}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TKMM.SarcTool.Common", "TKMM.SarcTool.Common\TKMM.SarcTool.Common.csproj", "{D000664C-5250-457A-9BED-68EBA56A1BAE}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TKMM.SarcTool.Plugin.Byml", "TKMM.SarcTool.Plugin.Byml\TKMM.SarcTool.Plugin.Byml.csproj", "{BFB57E91-8BB4-479A-A82D-A9DA4F96EA53}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TKMM.SarcTool.Core", "TKMM.SarcTool.Core\TKMM.SarcTool.Core.csproj", "{82129079-FBC0-442F-9F32-77A386954323}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -16,13 +14,9 @@ Global
 		{84B3E18C-A3DB-4D8D-B71D-18564B8C7843}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{84B3E18C-A3DB-4D8D-B71D-18564B8C7843}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{84B3E18C-A3DB-4D8D-B71D-18564B8C7843}.Release|Any CPU.Build.0 = Release|Any CPU
-		{D000664C-5250-457A-9BED-68EBA56A1BAE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{D000664C-5250-457A-9BED-68EBA56A1BAE}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{D000664C-5250-457A-9BED-68EBA56A1BAE}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{D000664C-5250-457A-9BED-68EBA56A1BAE}.Release|Any CPU.Build.0 = Release|Any CPU
-		{BFB57E91-8BB4-479A-A82D-A9DA4F96EA53}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{BFB57E91-8BB4-479A-A82D-A9DA4F96EA53}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{BFB57E91-8BB4-479A-A82D-A9DA4F96EA53}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{BFB57E91-8BB4-479A-A82D-A9DA4F96EA53}.Release|Any CPU.Build.0 = Release|Any CPU
+		{82129079-FBC0-442F-9F32-77A386954323}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{82129079-FBC0-442F-9F32-77A386954323}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{82129079-FBC0-442F-9F32-77A386954323}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{82129079-FBC0-442F-9F32-77A386954323}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

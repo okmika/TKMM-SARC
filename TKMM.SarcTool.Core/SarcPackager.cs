@@ -1,141 +1,117 @@
+using System.Diagnostics;
 using SarcLibrary;
-using Spectre.Console;
-using TKMM.SarcTool.Common;
-using TKMM.SarcTool.Compression;
-using TKMM.SarcTool.Special;
+using TKMM.SarcTool.Core.Model;
 
-namespace TKMM.SarcTool.Services;
+namespace TKMM.SarcTool.Core;
 
-internal class PackageService {
-
-    private readonly ConfigService configService;
-    private readonly IHandlerManager handlerManager;
-
-    private ConfigJson? config;
-    private ZsCompression? compression;
-    private ChecksumLookup? checksumLookup;
-    private string[] versions = new string[0];
-    private bool verboseOutput;
+public class SarcPackager {
+    private readonly ConfigJson config;
+    private readonly ZsCompression compression;
+    private readonly ChecksumLookup checksumLookup;
+    private readonly HandlerManager handlerManager;
+    private string[] versions;
+    private readonly string outputPath, modPath;
     
-    private readonly string[] supportedExtensions = new[] {
+    internal static readonly string[] SupportedExtensions = new[] {
         ".bfarc", ".bkres", ".blarc", ".genvb", ".pack", ".ta",
         ".bfarc.zs", ".bkres.zs", ".blarc.zs", ".genvb.zs", ".pack.zs", ".ta.zs"
     };
 
-    public PackageService(ConfigService configService, IHandlerManager handlerManager, IGlobals globals) {
-        this.configService = configService;
-        this.handlerManager = handlerManager;
-        this.verboseOutput = globals.Verbose;
+    public SarcPackager(string outputPath, string modPath, string? configPath = null, string? checksumPath = null, string[]? checkVersions = null) {
+        this.handlerManager = new HandlerManager();
+        this.outputPath = outputPath;
+        this.modPath = modPath;
+        configPath ??= Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Totk", "config.json");
+        
+        checksumPath ??= Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                                      "Totk", "checksums.bin");
+
+        checkVersions ??= new[] {"100", "110", "111", "112", "120", "121"};
+
+        if (!File.Exists(configPath))
+            throw new Exception($"{configPath} not found");
+
+        if (!File.Exists(checksumPath))
+            throw new Exception($"{checksumPath} not found");
+
+        this.config = ConfigJson.Load(configPath);
+
+        if (String.IsNullOrWhiteSpace(this.config.GamePath))
+            throw new Exception("Game path is not defined in config.json");
+
+        var compressionPath = Path.Combine(this.config.GamePath, "Pack", "ZsDic.pack.zs");
+        if (!File.Exists(compressionPath)) {
+            throw new Exception("Compression package not found: {this.config.GamePath}");
+        }
+
+        compression = new ZsCompression(compressionPath);
+        checksumLookup = new ChecksumLookup(checksumPath);
+
+        this.modPath = modPath;
+        this.versions = checkVersions;
+
+
+    }
+
+    public void Package() {
+        InternalMakePackage();
     }
     
-    public int Execute(string outputPath, string modPath, string? configPath, string? checksumPath, string[] checkVersions) {
-        if (String.IsNullOrWhiteSpace(configPath))
-            configPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                                      "Totk");
+   
 
-        // Config path only expects the json
-        configPath = Path.Combine(configPath, "config.json");
+    private void InternalMakePackage() {
+        string[] filesInFolder = Directory.GetFiles(modPath, "*", SearchOption.AllDirectories);
         
-        if (String.IsNullOrWhiteSpace(checksumPath))
-            checksumPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                                        "Totk", "checksums.bin");
+        foreach (var filePath in filesInFolder.Where(file => SupportedExtensions.Any(ext => file.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))) {
+            var pathRelativeToBase = Path.GetRelativePath(modPath, Path.GetDirectoryName(filePath)!);
+            var destinationPath = Path.Combine(outputPath, pathRelativeToBase);
+            if (!Directory.Exists(destinationPath))
+                Directory.CreateDirectory(destinationPath);
 
-        if (!File.Exists(configPath)) {
-            AnsiConsole.MarkupLineInterpolated($"[red]Could not find configuration: {configPath}\n[bold]Abort.[/][/]");
-            return -1;
-        }
-
-        if (!File.Exists(checksumPath)) {
-            AnsiConsole.MarkupLineInterpolated($"[red]Could not find checksum database: {checksumPath}\n[bold]Abort.[/][/]");
-            return -1;
-        }
-
-        if (!Initialize(configPath, checksumPath))
-            return -1;
-
-        this.versions = checkVersions;
-        InternalMakePackage(modPath, outputPath);
-
-        AnsiConsole.MarkupLine("[green][bold]Packaging completed successfully.[/][/]");
-        
-        return 0;
-    }
-
-    private void InternalMakePackage(string modPath, string outputPath) {
-        string[] filesInFolder = new string[0];
-
-        AnsiConsole.Status()
-                   .Spinner(Spinner.Known.Dots2)
-                   .Start("Getting list of archives to check", _ => {
-                       filesInFolder = Directory.GetFiles(modPath, "*", SearchOption.AllDirectories);
-                   });
-
-        AnsiConsole.MarkupLineInterpolated($"[bold]Packaging SARCs in {modPath} to {outputPath}[/]");
-
-        AnsiConsole.Status()
-                   .Spinner(Spinner.Known.Dots2)
-                   .Start("Preparing", context => {
+            var outputFilePath = Path.Combine(destinationPath, Path.GetFileName(filePath));
             
-                        foreach (var filePath in filesInFolder.Where(file => supportedExtensions.Any(ext => file.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))) {
-                            var pathRelativeToBase = Path.GetRelativePath(modPath, Path.GetDirectoryName(filePath)!);
-                            var destinationPath = Path.Combine(outputPath, pathRelativeToBase);
-                            if (!Directory.Exists(destinationPath))
-                                Directory.CreateDirectory(destinationPath);
+            try {
+                var result = HandleArchive(filePath, pathRelativeToBase);
 
-                            var outputFilePath = Path.Combine(destinationPath, Path.GetFileName(filePath));
-                            
-                            try {
-                                context.Status($"Processing {filePath}");
-                                var result = HandleArchive(filePath, pathRelativeToBase);
+                if (result.Length == 0) {
+                    Trace.TraceInformation("Omitting {0}: Same as vanilla");
+                    continue;
+                }
 
-                                if (result.Length == 0) {
-                                    AnsiConsole.MarkupLineInterpolated($"! [yellow]Omitting {modPath
-                                    } because file is same as vanilla or no changes made[/]");
-                                    continue;
-                                }
+                // Copy to destination
+                if (File.Exists(outputFilePath)) {
+                    Trace.TraceWarning("Overwriting {0}", outputFilePath);
+                    File.Delete(outputFilePath);
+                }
 
-                                // Copy to destination
-                                if (File.Exists(outputFilePath)) {
-                                    AnsiConsole.MarkupLineInterpolated($"! [yellow]Overwriting existing file in output: {outputFilePath}[/]");
-                                    File.Delete(outputFilePath);
-                                }
+                File.WriteAllBytes(outputFilePath, result.ToArray());
 
-                                File.WriteAllBytes(outputFilePath, result.ToArray());
+                Trace.TraceInformation("Packaged {0}", outputFilePath);
+            } catch (Exception exc) {
+                Trace.TraceError("Failed to package {0} - Error: {1} - skipping", filePath, exc.Message);
+                
+                if (File.Exists(outputFilePath)) {
+                    Trace.TraceWarning("Overwriting {0}", outputFilePath);
+                    File.Delete(outputFilePath);
+                }
 
-                                AnsiConsole.MarkupLineInterpolated($"» [green]Wrote {outputFilePath}[/]");
-                            } catch (Exception exc) {
-                                AnsiConsole.WriteException(exc, ExceptionFormats.ShortenEverything);
-                                AnsiConsole.MarkupLineInterpolated($"X [red]Failed to package {filePath} - skipping[/]");
-                                
-                                if (File.Exists(outputFilePath)) {
-                                    AnsiConsole.MarkupLineInterpolated($"! [yellow]Overwriting existing file in output: {outputFilePath}[/]");
-                                    File.Delete(outputFilePath);
-                                }
+                File.Copy(filePath, outputFilePath, true);
+            }
+        }
 
-                                File.Copy(filePath, outputFilePath, true);
-                            }
-                        }
+        Trace.TraceInformation("Packaging flat files to {0}", outputPath);
+        PackageFilesInMod();
 
-                        AnsiConsole.MarkupLineInterpolated($"[bold]Packaging flat files in {modPath} to {outputPath}[/]");
-                        context.Status("Packaging flat files...");
-                        PackageFilesInMod(modPath, outputPath, context);
+        Trace.TraceInformation("Creating GDL changelog");
+        PackageGameDataList();
 
-                        AnsiConsole.MarkupLineInterpolated($"[bold]Creating GameDataList changelog[/]");
-                        context.Status("Handling GDL files...");
-                        PackageGameDataList(modPath, outputPath, context);
-                   });
-        
 
     }
 
     private Span<byte> HandleArchive(string archivePath, string pathRelativeToBase) {
-
-        if (compression == null)
-            throw new Exception("Compression not loaded");
-
-        if (checksumLookup == null)
-            throw new Exception("Checksums not loaded");
-
+        
         var isCompressed = archivePath.EndsWith(".zs");
         var isPackFile = archivePath.Contains(".pack.");
 
@@ -174,17 +150,11 @@ internal class PackageService {
                 var handler = handlerManager.GetHandlerInstance(fileExtension);
 
                 if (handler == null) {
-                    if (verboseOutput)
-                        AnsiConsole.MarkupLineInterpolated($"! [yellow]{archivePath} {entry.Value}: No handler for type {
-                            fileExtension}, overwriting[/]");
-
+                    Trace.TraceWarning("No handler for {0} {1} - overwriting contents", archivePath, entry.Key);
                     sarc[entry.Key] = entry.Value;
                     continue;
                 }
-
-                if (verboseOutput)
-                    AnsiConsole.MarkupLineInterpolated($"- {archiveHash}: Reconciling {entry.Key}");
-
+                
                 var result = handler.Package(entry.Key, new List<MergeFile>() {
                     new MergeFile(1, entry.Value),
                     new MergeFile(0, originalSarc[entry.Key])
@@ -219,10 +189,8 @@ internal class PackageService {
         return outputContents;
     }
 
-    private void PackageGameDataList(string modPath, string outputPath, StatusContext statusContext) {
-        statusContext.Status("Packaging GameDataList files");
-
-        var gdlFilePath = Path.Combine(modPath, "romfs", "GameData");
+    private void PackageGameDataList() {
+       var gdlFilePath = Path.Combine(modPath, "romfs", "GameData");
 
         if (!Directory.Exists(gdlFilePath))
             return;
@@ -242,7 +210,6 @@ internal class PackageService {
                 var vanillaFilePath = Path.Combine(config!.GamePath!, "GameData", Path.GetFileName(gdlFile));
 
                 if (!File.Exists(vanillaFilePath)) {
-                    AnsiConsole.MarkupLineInterpolated($"X [red]Cannot find GDL vanilla file {gdlFile} - abort[/]");
                     throw new Exception("Failed to find vanilla GameDataList file");
                 }
 
@@ -254,7 +221,7 @@ internal class PackageService {
                 var changelog = gdlMerger.Package(vanillaFile, modFile);
 
                 if (changelog.Length == 0) {
-                    AnsiConsole.MarkupLineInterpolated($"- No changes in {gdlFile}");
+                    Trace.TraceInformation("No changes in GDL");
                     continue;
                 }
 
@@ -264,13 +231,13 @@ internal class PackageService {
                     Directory.CreateDirectory(Path.GetDirectoryName(targetFilePath)!);
                 
                 File.WriteAllBytes(targetFilePath, changelog.ToArray());
-                
-                AnsiConsole.MarkupLineInterpolated($"» [green]Created {targetFilePath}[/]");
+
+                Trace.TraceInformation("Created GDL changelog");
                 
                 // Only need one change log
                 break;
             } catch {
-                AnsiConsole.MarkupLineInterpolated($"X [red]Failed to process GDL file {gdlFile} - abort[/]");
+                Trace.TraceError("Failed to create GDL changelog");
                 throw;
             }
 
@@ -278,7 +245,7 @@ internal class PackageService {
 
     }
 
-    private void PackageFilesInMod(string modPath, string outputPath, StatusContext statusContext) {
+    private void PackageFilesInMod() {
         var filesInModFolder =
             Directory.GetFiles(modPath, "*", SearchOption.AllDirectories);
 
@@ -303,18 +270,16 @@ internal class PackageService {
             if (prefixExclusions.Any(l => Path.GetFileName(filePath).StartsWith(l)))
                 continue;
 
-            statusContext.Status($"Processing {filePath}");
-
             var baseRomfs = Path.Combine(modPath, "romfs");
             var pathRelativeToBase = Path.GetRelativePath(baseRomfs, Path.GetDirectoryName(filePath)!);
 
-            PackageFile(filePath, modPath, pathRelativeToBase, outputPath);
+            PackageFile(filePath, pathRelativeToBase);
 
-            AnsiConsole.MarkupLineInterpolated($"» [green]Merged {filePath} into {pathRelativeToBase}[/]");
+            Trace.TraceInformation("Created {0} in {1}", filePath, pathRelativeToBase);
         }
     }
 
-    private void PackageFile(string filePath, string modPath, string pathRelativeToBase, string outputPath) {
+    private void PackageFile(string filePath, string pathRelativeToBase) {
         var targetFilePath = Path.Combine(outputPath, "romfs", pathRelativeToBase, Path.GetFileName(filePath));
         var vanillaFilePath = Path.Combine(config!.GamePath!, pathRelativeToBase, Path.GetFileName(filePath));
 
@@ -341,9 +306,9 @@ internal class PackageService {
         var handler = handlerManager.GetHandlerInstance(fileExtension);
 
         if (handler == null) {
-            if (verboseOutput)
-                AnsiConsole.MarkupLineInterpolated($"! [yellow]{modPath}: No handler for type {fileExtension}, overwriting {Path.GetFileName(filePath)} in {pathRelativeToBase}[/]");
-
+            Trace.TraceWarning("No handler for {0} {1} - overwriting contents", Path.GetFileName(filePath), 
+                               pathRelativeToBase);
+            
             File.Copy(filePath, targetFilePath, true);
         } else {
             var relativeFilename = Path.Combine(pathRelativeToBase, Path.GetFileName(filePath));
@@ -538,28 +503,4 @@ internal class PackageService {
         return Sarc.FromBinary(fileContents.ToArray());
     }
 
-    private bool Initialize(string configPath, string checksumPath) {
-        config = configService.GetConfig(configPath);
-
-        if (String.IsNullOrWhiteSpace(config.GamePath)) {
-            AnsiConsole.MarkupInterpolated(
-                $"[red]Config file does not include path to a dump of the game. [bold]Abort.[/][/]");
-            return false;
-        }
-        
-        // Try to init compression
-        var compressionPath = Path.Combine(this.config.GamePath, "Pack", "ZsDic.pack.zs");
-        if (!File.Exists(compressionPath)) {
-            AnsiConsole.MarkupInterpolated($"[red]Could not find compression dictionary: {compressionPath}\n[bold]Abort.[/][/]");
-            return false;
-        }
-
-        compression = new ZsCompression(compressionPath);
-        
-        // Init checksums
-        checksumLookup = new ChecksumLookup(checksumPath);
-        
-        return true;
-    }
-    
 }

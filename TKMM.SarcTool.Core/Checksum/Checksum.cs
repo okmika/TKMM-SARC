@@ -1,9 +1,9 @@
 using System.IO.Hashing;
 using System.Text;
 
-namespace TKMM.SarcTool;
+namespace TKMM.SarcTool.Core;
 
-public static class Checksum {
+internal static class Checksum {
     private static readonly uint[] table = CreateTable();
 
     public static uint ComputeNintendoHash(ReadOnlySpan<char> chars) {

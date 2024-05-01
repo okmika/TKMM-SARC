@@ -1,86 +1,78 @@
-using System.Runtime.Serialization.Formatters.Binary;
+using System.Diagnostics;
 using SarcLibrary;
-using Spectre.Console;
-using TKMM.SarcTool.Common;
-using TKMM.SarcTool.Compression;
+using TKMM.SarcTool.Core.Model;
 
-namespace TKMM.SarcTool.Services;
+namespace TKMM.SarcTool.Core;
 
-public class AssembleService {
-    private readonly ConfigService configService;
-    private readonly IHandlerManager handlerManager;
-
-    private ConfigJson? config;
-    private ZsCompression? compression;
+public class SarcAssembler {
+    
+    private readonly ConfigJson config;
+    private ZsCompression compression;
     private Dictionary<string, string> archiveMappings = new Dictionary<string, string>();
 
-    public AssembleService(ConfigService configService, IHandlerManager handlerManager) {
-        this.configService = configService;
-        this.handlerManager = handlerManager;
-    }
+    private readonly string modPath;
+    private readonly string configPath;
 
-    public int Assemble(string modPath, string? configPath) {
+    public SarcAssembler(string modPath, string? configPath = null) {
+        configPath ??= Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Totk", "config.json");
 
-        if (String.IsNullOrWhiteSpace(configPath))
-            configPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                                      "Totk");
+        if (!File.Exists(configPath))
+            throw new Exception($"{configPath} not found");
 
-        var configFile = Path.Combine(configPath, "config.json");
+        this.config = ConfigJson.Load(configPath);
 
-        if (!File.Exists(configFile)) {
-            AnsiConsole.MarkupInterpolated($"[red]Failed to find config file: {configFile} - abort[/]");
-            return -1;
+        if (String.IsNullOrWhiteSpace(this.config.GamePath))
+            throw new Exception("Game path is not defined in config.json");
+
+        var compressionPath = Path.Combine(this.config.GamePath, "Pack", "ZsDic.pack.zs");
+        if (!File.Exists(compressionPath)) {
+            throw new Exception("Compression package not found: {this.config.GamePath}");
         }
 
-        if (!Initialize(configFile))
-            return -1;
+        compression = new ZsCompression(compressionPath);
 
-        AnsiConsole.Status()
-                   .Spinner(Spinner.Known.Dots2)
-                   .Start("Preparing", context => {
-                       LoadArchiveCache(configPath, context);
-                       InternalAssemble(modPath, context);
-                   });
-
-        AnsiConsole.MarkupLine("[green]Assembly completed successfully.[/]");
-        return 0;
+        this.modPath = modPath;
+        this.configPath = configPath;
     }
 
-    private void InternalAssemble(string modPath, StatusContext context) {
+    public void Assemble() {
 
-        var supportedExtensions = handlerManager.GetSupportedExtensions();
-
-        context.Status($"Preparing to assemble...");
-        AnsiConsole.MarkupLineInterpolated($"[bold]Assembling in {modPath}  ({string.Join(" ", supportedExtensions)})[/]");
+        LoadArchiveCache();
+        InternalAssemble();
         
+    }
+
+    private void InternalAssemble() {
+
+        var supportedExtensions = new[] {"byml", "byaml"};
+
         var flatFiles = Directory.GetFiles(modPath, "*", SearchOption.AllDirectories)
                                  .Where(l => supportedExtensions.Any(
                                             ext => l.EndsWith(ext) || l.EndsWith(ext + ".zs")))
                                  .ToList();
 
         foreach (var file in flatFiles) {
-            context.Status($"Assembling {file}");
-
             var relativeFilePath = GetRelativePath(file, modPath);
             
             if (!archiveMappings.TryGetValue(relativeFilePath, out var archiveRelativePath)) {
                 continue;
             }
 
-            if (!MergeIntoArchive(modPath, archiveRelativePath, file, relativeFilePath)) {
-                AnsiConsole.MarkupLineInterpolated($"! [yellow]Skipping {file} - could not merge[/]");
+            if (!MergeIntoArchive(archiveRelativePath, file, relativeFilePath)) {
+                Trace.TraceWarning("Skipping {0} - could not assemble", file);
                 continue;
             }
             
             // Success means we delete the flat file
-            AnsiConsole.MarkupLineInterpolated($"» [green]{file} merged into {archiveRelativePath}");
             File.Delete(file);
 
         }
         
     }
 
-    private bool MergeIntoArchive(string modPath, string archiveRelativePath, string filePath, string fileRelativePath) {
+    private bool MergeIntoArchive(string archiveRelativePath, string filePath, string fileRelativePath) {
 
         var archivePath = GetAbsolutePath(archiveRelativePath, modPath);
 
@@ -121,29 +113,29 @@ public class AssembleService {
         return true;
     }
 
-    private void LoadArchiveCache(string configPath, StatusContext context) {
+    private void LoadArchiveCache() {
         var archiveCachePath = Path.Combine(configPath, "archivemappings.bin");
 
         if (!File.Exists(archiveCachePath)) {
-            CreateArchiveCache(archiveCachePath, context);
+            CreateArchiveCache(archiveCachePath);
         } else {
             LoadArchiveCacheFromDisk(archiveCachePath);
         }
     }
 
-    private void CreateArchiveCache(string archiveCachePath, StatusContext context) {
+    private void CreateArchiveCache(string archiveCachePath) {
 
         var supportedExtensions = new[] {
             ".pack.zs", ".pack"
         };
 
-        context.Status($"Preparing to create archive cache");
+        Trace.TraceInformation($"Preparing to create archive cache");
 
         var dumpArchives = Directory.GetFiles(config!.GamePath!, "*", SearchOption.AllDirectories)
                                     .Where(l => supportedExtensions.Any(ext => l.EndsWith(ext)))
                                     .ToList();
 
-        context.Status($"Creating archive cache (this may take a bit)");
+        Trace.TraceInformation("Creating archive cache (this may take a bit)");
         
         foreach (var file in dumpArchives) {
             var isCompressed = file.EndsWith(".zs");
@@ -155,11 +147,9 @@ public class AssembleService {
 
                 foreach (var key in sarc.Keys)
                     archiveMappings.TryAdd(key, relativeArchivePath);
-
-                AnsiConsole.MarkupLineInterpolated($"» [green]{file}[/]");
+                
             } catch (Exception exc) {
-                AnsiConsole.WriteException(exc, ExceptionFormats.ShortenEverything);
-                AnsiConsole.MarkupLineInterpolated($"X [red]Couldn't load {file} - skipping[/]");
+                Trace.TraceError("Couldn't load {0} - Error: {1} - Skipping", file, exc.Message);
             }
         }
 
@@ -244,25 +234,6 @@ public class AssembleService {
             return Path.Combine(basePath, relativePath);
     }
 
-    private bool Initialize(string configPath) {
-        config = configService.GetConfig(configPath);
-
-        if (String.IsNullOrWhiteSpace(config.GamePath)) {
-            AnsiConsole.MarkupInterpolated(
-                $"[red]Config file does not include path to a dump of the game. [bold]Abort.[/][/]");
-            return false;
-        }
-
-        // Try to init compression
-        var compressionPath = Path.Combine(this.config.GamePath, "Pack", "ZsDic.pack.zs");
-        if (!File.Exists(compressionPath)) {
-            AnsiConsole.MarkupInterpolated($"[red]Could not find compression dictionary: {compressionPath}\n[bold]Abort.[/][/]");
-            return false;
-        }
-
-        compression = new ZsCompression(compressionPath);
-        return true;
-    }
 
     internal Span<byte> GetFileContents(string archivePath, bool isCompressed, bool isPackFile) {
         if (compression == null)
@@ -309,5 +280,4 @@ public class AssembleService {
             File.WriteAllBytes(archivePath, memoryStream.ToArray());
         }
     }
-    
 }

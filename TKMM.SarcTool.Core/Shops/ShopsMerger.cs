@@ -1,14 +1,13 @@
+using System.Diagnostics;
 using BymlLibrary;
 using Revrs;
 using SarcLibrary;
-using Spectre.Console;
-using TKMM.SarcTool.Services;
 
-namespace TKMM.SarcTool.Special;
+namespace TKMM.SarcTool.Core;
 
 internal class ShopsMerger {
 
-    private readonly MergeService mergeService;
+    private readonly SarcMerger merger;
     private readonly Queue<ShopMergerEntry> shops = new Queue<ShopMergerEntry>();
     private readonly HashSet<string> allShops;
     private readonly Stack<Byml> overflowEntries = new Stack<Byml>();
@@ -16,8 +15,8 @@ internal class ShopsMerger {
     
     public Func<string, ShopMergerEntry>? GetEntryForShop { get; set; }
 
-    public ShopsMerger(MergeService mergeService, HashSet<string> allShops, bool verbose) {
-        this.mergeService = mergeService;
+    public ShopsMerger(SarcMerger merger, HashSet<string> allShops) {
+        this.merger = merger;
         this.verbose = verbose;
         this.allShops = allShops;
     }
@@ -26,27 +25,27 @@ internal class ShopsMerger {
         shops.Enqueue(new ShopMergerEntry(actor, archivePath));
     }
 
-    public void MergeShops(StatusContext context) {
+    public void MergeShops() {
         
         while (shops.Count > 0) {
             var shop = shops.Dequeue();
 
             if (allShops.Contains(shop.Actor))
                 allShops.Remove(shop.Actor);
-            
-            context.Status($"Processing shop for {shop.Actor}...");
-            var sarcBin = mergeService.GetFileContents(shop.ArchivePath, true, true).ToArray();
+
+            Trace.TraceInformation("Processing shop for {0}", shop.Actor);
+            var sarcBin = merger.GetFileContents(shop.ArchivePath, true, true).ToArray();
             var sarc = Sarc.FromBinary(sarcBin);
             var key = $"Component/ShopParam/{shop.Actor}.game__component__ShopParam.bgyml";
 
             if (!sarc.ContainsKey(key)) {
-                AnsiConsole.MarkupLineInterpolated($"! [yellow]{shop.ArchivePath} does not contain shop param bgyml. Skipping.[/]");
+                Trace.TraceWarning("{0} does not contain shop param bgyml- skipping", shop.ArchivePath);
                 continue;
             }
 
             var shopsByml = Byml.FromBinary(sarc[key]);
             if (shopsByml.Type != BymlNodeType.Map) {
-                AnsiConsole.MarkupLineInterpolated($"! [yellow]Shop for {shop.Actor} is not a map. Skipping.[/]");
+                Trace.TraceWarning("Shop for {0} is not a map - skipping", shop.Actor);
                 continue;
             }
 
@@ -59,11 +58,10 @@ internal class ShopsMerger {
                     goodsList.Remove(item);
                 }
 
-                if (verbose)
-                    AnsiConsole.MarkupLineInterpolated($"- {shop.Actor} overflowed {goodsToOverflow.Count}");
-
+                Trace.TraceInformation("{0} shop overflowed {1}", shop.Actor, goodsToOverflow.Count);
+                
                 sarc[key] = shopsByml.ToBinary(Endianness.Little);
-                mergeService.WriteFileContents(shop.ArchivePath, sarc, true, true);
+                merger.WriteFileContents(shop.ArchivePath, sarc, true, true);
             }
             
             var wroteCount = 0;
@@ -73,11 +71,12 @@ internal class ShopsMerger {
                 wroteCount++;
             }
 
-            if (wroteCount > 0 && verbose)
-                AnsiConsole.MarkupLineInterpolated($"- {shop.Actor} added {wroteCount} overflow items");
+            if (wroteCount > 0)
+                Trace.TraceInformation("{0} shop added {1} overflow items", shop.Actor, wroteCount);
 
             if (overflowEntries.Count > 0 && shops.Count == 0 && allShops.Count == 0) {
-                AnsiConsole.MarkupLineInterpolated($"X [red]Shop items overflow exceeds shops. Discarding {overflowEntries.Count} shop entries.[/]");
+                Trace.TraceWarning("Shop items overflow exceeds shops - discarding {0} shop entries",
+                                   overflowEntries.Count);
             } else if (overflowEntries.Count > 0 && shops.Count == 0) {
                 if (GetEntryForShop == null)
                     throw new Exception("No shop resolver specified");
@@ -89,7 +88,7 @@ internal class ShopsMerger {
 
             if (wroteCount > 0) {
                 sarc[key] = shopsByml.ToBinary(Endianness.Little);
-                mergeService.WriteFileContents(shop.ArchivePath, sarc, true, true);
+                merger.WriteFileContents(shop.ArchivePath, sarc, true, true);
             }
         }
         

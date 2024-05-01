@@ -1,150 +1,106 @@
-using Microsoft.Extensions.Logging;
+using System.Diagnostics;
 using SarcLibrary;
-using Spectre.Console;
-using TKMM.SarcTool.Common;
-using TKMM.SarcTool.Compression;
-using TKMM.SarcTool.Special;
+using TKMM.SarcTool.Core.Model;
 
-namespace TKMM.SarcTool.Services;
+namespace TKMM.SarcTool.Core;
 
-internal class MergeService {
+public class SarcMerger {
+    private readonly ConfigJson config;
+    private readonly ZsCompression compression;
+    private readonly List<ShopsJsonEntry> shops;
 
-    private readonly ConfigService configService;
-    private readonly IHandlerManager handlerManager;
+    private readonly string outputPath, basePath;
+    private readonly string[] modsList;
+    private readonly HandlerManager handlerManager;
 
-    private ConfigJson? config;
-    private ZsCompression? compression;
-    private bool verboseOutput;
-    private List<ShopsJsonEntry>? shops;
-
-    private readonly string[] supportedExtensions = new[] {
-        ".bfarc", ".bkres", ".blarc", ".genvb", ".pack", ".ta",
-        ".bfarc.zs", ".bkres.zs", ".blarc.zs", ".genvb.zs", ".pack.zs", ".ta.zs"
-    };
-
-    public MergeService(ConfigService configService, IHandlerManager handlerManager, IGlobals globals) {
-        this.configService = configService;
-        this.handlerManager = handlerManager;
-        this.verboseOutput = globals.Verbose;
-    }
-
-    public int ExecuteArchiveMerge(IEnumerable<string> modsList, string basePath, string outputPath, string? configPath) {
-
-        if (String.IsNullOrWhiteSpace(configPath))
-            configPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                                      "Totk");
-
-        if (!File.Exists(Path.Combine(configPath, "config.json"))) {
-            AnsiConsole.MarkupLineInterpolated($"[red]Could not find config.json in {configPath}\n[bold]Abort.[/][/]");
-            return -1;
-        }
-
-        if (!Initialize(configPath))
-            return -1;
+    public SarcMerger(IEnumerable<string> modsList, string basePath, string outputPath, string? configPath = null, string? shopsPath = null) {
+        this.handlerManager = new HandlerManager();
+        this.outputPath = outputPath;
+        this.modsList = modsList.ToArray();
+        this.basePath = basePath;
         
-        InternalMergeArchives(modsList.ToArray(), basePath, outputPath);
+        configPath ??= Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Totk", "config.json");
 
-        AnsiConsole.MarkupLine("[green][bold]Merging completed successfully.[/][/]");
-        return 0;
+        shopsPath ??= Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "tkmm",
+                                     "shops.json");
 
-    }
+        if (!File.Exists(configPath))
+            throw new Exception($"{configPath} not found");
 
-    public int ExecuteFlatMerge(IEnumerable<string> modsList, string basePath, string outputPath, string? configPath) {
-        if (String.IsNullOrWhiteSpace(configPath))
-            configPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                                      "Totk");
+        this.config = ConfigJson.Load(configPath);
 
-        if (!File.Exists(Path.Combine(configPath, "config.json"))) {
-            AnsiConsole.MarkupLineInterpolated($"[red]Could not find config.json in {configPath}\n[bold]Abort.[/][/]");
-            return -1;
+        if (String.IsNullOrWhiteSpace(this.config.GamePath))
+            throw new Exception("Game path is not defined in config.json");
+
+        var compressionPath = Path.Combine(this.config.GamePath, "Pack", "ZsDic.pack.zs");
+        if (!File.Exists(compressionPath)) {
+            throw new Exception("Compression package not found: {this.config.GamePath}");
         }
 
-        if (!Initialize(configPath))
-            return -1;
+        if (!File.Exists(shopsPath))
+            throw new Exception($"{shopsPath} not found");
+
+        this.shops = ShopsJsonEntry.Load(shopsPath);
+        compression = new ZsCompression(compressionPath);
         
-        InternalFlatMerge(modsList.ToArray(), basePath, outputPath);
-
-        AnsiConsole.MarkupLine("[green][bold]Merging completed successfully.[/][/]");
-        return 0;
     }
 
-    public int ExecuteGdlCompare(string fileOne, string fileTwo, string? configPath) {
-        if (String.IsNullOrWhiteSpace(configPath))
-            configPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                                      "Totk");
+    public void Merge() {
 
-        if (!File.Exists(Path.Combine(configPath, "config.json"))) {
-            AnsiConsole.MarkupLineInterpolated($"[red]Could not find config.json in {configPath}\n[bold]Abort.[/][/]");
-            return -1;
-        }
+        Trace.TraceInformation("Merging archives");
+        InternalMergeArchives();
 
-        if (!Initialize(configPath))
-            return -1;
+        Trace.TraceInformation("Merging flat files");
+        InternalFlatMerge();
 
+    }
+
+    public bool HasGdlChanges(string fileOne, string fileTwo) {
+        if (fileOne == null)
+            throw new ArgumentNullException(nameof(fileOne));
+        
+        if (fileTwo == null)
+            throw new ArgumentNullException(nameof(fileTwo));
+        
         if (!fileOne.EndsWith(".zs") || !fileTwo.EndsWith(".zs")) {
-            AnsiConsole.MarkupLineInterpolated($"[red]Only compressed (.zs) GameDataList files are supported.[/]");
-            return -1;
+            throw new Exception("Only compressed (.zs) GDL files are supported");
         }
 
-        if (!Path.GetFileName(fileOne).StartsWith("GameDataList.Product") ||
-            !Path.GetFileName(fileTwo).StartsWith("GameDataList.Product")) {
-            AnsiConsole.MarkupLineInterpolated($"[red]You didn't specify a GameDataList file.[/]");
-            return -1;
+        var fileOneBytes = GetFlatFileContents(fileOne, true);
+        var fileTwoBytes = GetFlatFileContents(fileTwo, true);
+
+        var merger = new GameDataListMerger();
+        return merger.Compare(fileOneBytes, fileTwoBytes);
+    }
+
+    private void InternalFlatMerge() {
+        foreach (var modFolderName in modsList) {
+            Trace.TraceInformation("Processing {0}", modFolderName);
+            
+            MergeFilesInMod(modFolderName);
+            
+            Trace.TraceInformation("Processing GDL in {0}", modFolderName);
+            MergeGameDataList(modFolderName);
+        }
+    }
+
+    private void InternalMergeArchives() {
+
+        CleanPackagesInTarget();
+
+        foreach (var modFolderName in modsList) {
+            Trace.TraceInformation("Processing {0}", modFolderName);
+            MergeArchivesInMod(modFolderName);
         }
 
-        AnsiConsole.Status()
-                   .Spinner(Spinner.Known.Dots2)
-                   .Start($"Comparing GDL: {fileOne} with {fileTwo}", _ => {
-                       var fileOneBytes = GetFlatFileContents(fileOne, true);
-                       var fileTwoBytes = GetFlatFileContents(fileTwo, true);
-
-                       var merger = new GameDataListMerger();
-                       merger.Compare(fileOneBytes, fileTwoBytes);
-                   });
-
-        return 0;
+        Trace.TraceInformation("Merging shops");
+        MergeShops();
 
     }
 
-    private void InternalFlatMerge(string[] modsList, string basePath, string outputPath) {
-        AnsiConsole.MarkupLineInterpolated($"[bold]Merging flat files in mods {String.Join(", ", modsList.Select(l => $"'{l}'"))} into \"{outputPath}\"[/]");
-
-        AnsiConsole.Status()
-                   .Spinner(Spinner.Known.Dots2)
-                   .Start("Preparing...", context => {
-                       foreach (var modFolderName in modsList) {
-                           context.Status($"Processing {modFolderName}...");
-                           MergeFilesInMod(modFolderName, basePath, outputPath, context);
-
-                           context.Status($"Processing GameDataList changelogs in {modFolderName}...");
-                           MergeGameDataList(Path.Combine(basePath, modFolderName), outputPath, context);
-                       }
-                   });
-    }
-
-    private void InternalMergeArchives(string[] modsList, string basePath, string outputPath) {
-
-        AnsiConsole.MarkupLineInterpolated($"[bold]Merging mods {String.Join(", ", modsList.Select(l => $"'{l}'"))} into \"{outputPath}\"[/]");
-
-        AnsiConsole.Status()
-                   .Spinner(Spinner.Known.Dots2)
-                   .Start("Preparing...", context => {
-                       CleanPackagesInTarget(outputPath);
-                       
-                       foreach (var modFolderName in modsList) {
-                           context.Status($"Processing {modFolderName}...");
-                           MergeArchivesInMod(modFolderName, basePath, outputPath, context);
-                       }
-
-                       context.Status($"Merging shops...");
-                       MergeShops(outputPath, context);
-                   });
-
-
-    }
-
-    private void MergeFilesInMod(string modFolderName, string basePath, string outputPath,
-                                 StatusContext statusContext) {
+    private void MergeFilesInMod(string modFolderName) {
 
         // Get archive files in mod folder
         var modFolderPath = Path.Combine(basePath, modFolderName);
@@ -179,23 +135,22 @@ internal class MergeService {
             var pathRelativeToBase = Path.GetRelativePath(baseRomfs, Path.GetDirectoryName(filePath)!);
 
             try {
-                MergeFile(filePath, modFolderName, pathRelativeToBase, outputPath);
+                MergeFile(filePath, modFolderName, pathRelativeToBase);
             } catch {
-                AnsiConsole.MarkupLineInterpolated($"X [red]Failed to merge {filePath} - abort[/]");
+                Trace.TraceError("Failed to merge {0}", filePath);
                 throw;
             }
 
-            AnsiConsole.MarkupLineInterpolated($"» [green]Merged {filePath} into {pathRelativeToBase}[/]");
+            Trace.TraceInformation("Merged {0} into {1}", filePath, pathRelativeToBase);
         }
     }
 
-    private void MergeGameDataList(string modPath, string outputPath, StatusContext statusContext) {
+    private void MergeGameDataList(string modFolderName) {
+        var modPath = Path.Combine(basePath, modFolderName);
         var gdlChangelog = Path.Combine(modPath, "romfs", "GameData", "GameDataList.gdlchangelog");
 
         if (!File.Exists(gdlChangelog))
             return;
-
-        statusContext.Status("Merging GameDataList changes");
         
         // Copy over vanilla files first
         var vanillaGdlPath = Path.Combine(config!.GamePath!, "GameData");
@@ -223,8 +178,6 @@ internal class MergeService {
         var changelogBytes = File.ReadAllBytes(gdlChangelog);
 
         foreach (var gdlFile in gdlFiles) {
-            statusContext.Status($"Processing GDL {gdlFile}");
-            
             var gdlFileBytes = GetFlatFileContents(gdlFile, true);
             var merger = new GameDataListMerger();
 
@@ -232,7 +185,7 @@ internal class MergeService {
 
             WriteFlatFileContents(gdlFile, resultBytes, true);
 
-            AnsiConsole.MarkupLineInterpolated($"» [green]Merged changelog into {gdlFile}[/]");
+            Trace.TraceInformation("Merged GDL changelog into {0}", gdlFile);
         }
 
         // Delete the changelog in the output folder in case it's there
@@ -242,13 +195,10 @@ internal class MergeService {
 
     }
 
-    private void MergeShops(string outputPath, StatusContext context) {
-        if (shops == null || shops.Count == 0) {
-            AnsiConsole.MarkupLineInterpolated($"! [yellow]Shops definition is empty. Skipping overflow merge.[/]");
-            return;
-        }
+    private void MergeShops() {
+      
         
-        var merger = new ShopsMerger(this, shops.Select(l => l.ActorName).ToHashSet(), verboseOutput);
+        var merger = new ShopsMerger(this, shops.Select(l => l.ActorName).ToHashSet());
         
         // This will be called if we ever need to request a shop file from the dump
         merger.GetEntryForShop = (actorName) => {
@@ -261,25 +211,18 @@ internal class MergeService {
         };
         
         foreach (var shop in shops) {
-            context.Status($"Preparing to merge shops for {shop.ActorName}...");
-
             var archivePath = Path.Combine(outputPath, "Pack", "Actor", $"{shop.ActorName}.pack.zs");
             if (!File.Exists(archivePath)) {
-                if (verboseOutput)
-                    AnsiConsole.MarkupLineInterpolated($"- Skipping shop {shop.ActorName}");
-
                 continue;
             }
 
             merger.Add(shop.ActorName, archivePath);
         }
 
-        merger.MergeShops(context);
-
-        AnsiConsole.MarkupLineInterpolated($"» [green]Merged shops successfully.[/]");
+        merger.MergeShops();
     }
 
-    private void MergeFile(string filePath, string modFolderName, string pathRelativeToBase, string outputPath) {
+    private void MergeFile(string filePath, string modFolderName, string pathRelativeToBase) {
         var targetFilePath = Path.Combine(outputPath, pathRelativeToBase, Path.GetFileName(filePath));
 
         // If the output doesn't even exist just copy it over and we're done
@@ -307,9 +250,9 @@ internal class MergeService {
         var handler = handlerManager.GetHandlerInstance(fileExtension);
 
         if (handler == null) {
-            if (verboseOutput)
-                AnsiConsole.MarkupLineInterpolated($"! [yellow]{modFolderName}: No handler for type {fileExtension}, overwriting {Path.GetFileName(filePath)} in {pathRelativeToBase}[/]");
-
+            Trace.TraceWarning("{0}: No handler for {1} - overwriting contents of {2} in {3}", modFolderName,
+                               fileExtension, Path.GetFileName(filePath), pathRelativeToBase);
+            
             File.Copy(filePath, targetFilePath, true);
         } else {
             var relativeFilename = Path.Combine(pathRelativeToBase, Path.GetFileName(filePath));
@@ -326,7 +269,7 @@ internal class MergeService {
         }
     }
 
-    private void MergeArchivesInMod(string modFolderName, string basePath, string outputPath, StatusContext statusContext) {
+    private void MergeArchivesInMod(string modFolderName) {
         
         // Get archive files in mod folder
         var modFolderPath = Path.Combine(basePath, modFolderName);
@@ -336,17 +279,16 @@ internal class MergeService {
         
         var filesInModFolder = Directory.GetFiles(modFolderPath, "*", SearchOption.AllDirectories);
 
-        foreach (var filePath in filesInModFolder.Where(file => supportedExtensions.Any(ext => file.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))) {
+        foreach (var filePath in filesInModFolder.Where(file => SarcPackager.SupportedExtensions.Any(ext => file.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))) {
 
             var baseRomfs = Path.Combine(basePath, modFolderName, "romfs");
             var pathRelativeToBase = Path.GetRelativePath(baseRomfs, Path.GetDirectoryName(filePath)!);
-            statusContext.Status($"Merging {filePath}...");
+            Trace.TraceInformation("{0}: Merging {1}", modFolderName, filePath);
 
             try {
-                MergeArchive(modFolderName, filePath, pathRelativeToBase, outputPath);
-                AnsiConsole.MarkupLineInterpolated($"» [green]Merged {filePath} into {pathRelativeToBase}[/]");
+                MergeArchive(modFolderName, filePath, pathRelativeToBase);
             } catch (InvalidDataException) {
-                AnsiConsole.MarkupLineInterpolated($"X [red]Invalid archive: {filePath} - can't merge so overwriting by priority[/]");
+                Trace.TraceWarning("Invalid archive: {0} - can't merge so overwriting by priority", filePath);
                 var targetArchivePath = Path.Combine(outputPath, pathRelativeToBase, Path.GetFileName(filePath));
 
                 if (File.Exists(targetArchivePath))
@@ -354,30 +296,26 @@ internal class MergeService {
 
                 File.Copy(filePath, targetArchivePath, true);
             } catch (Exception exc) {
-                AnsiConsole.WriteException(exc, ExceptionFormats.ShortenEverything);
-                AnsiConsole.MarkupLineInterpolated($"X [red]Failed to merge {filePath} - abort[/]");
+                Trace.TraceError("Failed to merge {0}", filePath);
                 throw;
             }
         }
         
     }
 
-    private void CleanPackagesInTarget(string outputPath) {
+    private void CleanPackagesInTarget() {
         if (!Directory.Exists(outputPath))
             return;
         
-        AnsiConsole.MarkupLineInterpolated($"! [yellow]Cleaning existing archives in output {outputPath}[/]");
+        Trace.TraceWarning("Cleaning existing archives in output {0}", outputPath);
 
         var filesInOutputFolder = Directory.GetFiles(outputPath, "*", SearchOption.AllDirectories);
-        foreach (var filePath in filesInOutputFolder.Where(file => supportedExtensions.Any(ext => file.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))) {
-            if (verboseOutput)
-                AnsiConsole.MarkupLineInterpolated($"   -> [yellow]Deleting {filePath}[/]");
-            
+        foreach (var filePath in filesInOutputFolder.Where(file => SarcPackager.SupportedExtensions.Any(ext => file.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))) {
             File.Delete(filePath);
         }
     }
 
-    private void MergeArchive(string modFolderName, string archivePath, string pathRelativeToBase, string outputPath) {
+    private void MergeArchive(string modFolderName, string archivePath, string pathRelativeToBase) {
         // If the output doesn't even exist just copy it over and we're done
         var targetArchivePath = Path.Combine(outputPath, pathRelativeToBase, Path.GetFileName(archivePath));
 
@@ -414,15 +352,11 @@ internal class MergeService {
                 var handler = handlerManager.GetHandlerInstance(fileExtension);
 
                 if (handler == null) {
-                    if (verboseOutput)
-                        AnsiConsole.MarkupLineInterpolated($"! [yellow]{modFolderName}: No handler for type {fileExtension}, overwriting {entry.Key} in {targetArchivePath}[/]");
-                    
+                    Trace.TraceWarning("{0}: No handler for {1} - overwriting contents of {2} in {3}", modFolderName,
+                                       fileExtension, entry.Key, targetArchivePath);
                     targetSarc[entry.Key] = entry.Value;
                     continue;
                 }
-
-                if (verboseOutput)
-                    AnsiConsole.MarkupLineInterpolated($"- {modFolderName}: Merging {entry.Key} into archive {targetArchivePath}");
                 
                 var result = handler.Merge(entry.Key, new List<MergeFile>() {
                     new MergeFile(1, entry.Value),
@@ -529,9 +463,6 @@ internal class MergeService {
         var originalFile = Path.Combine(sourcePath, pathRelativeToBase, Path.GetFileName(archivePath));
 
         if (File.Exists(originalFile)) {
-            if (verboseOutput)
-                AnsiConsole.MarkupLineInterpolated($"! [yellow]Copying file {originalFile} to {outputFile}[/]");
-            
             File.Copy(originalFile, outputFile, true);
             return true;
         }
@@ -539,32 +470,5 @@ internal class MergeService {
         return false;
     }
 
-    private bool Initialize(string configPath) {
-        var shopsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "tkmm",
-                                     "shops.json");
-        shops = configService.GetShops(shopsPath);
-
-        if (shops.Count == 0)
-            AnsiConsole.MarkupLineInterpolated($"! [yellow]{shopsPath} does not exist or it's empty. Shops merging disabled.[/]");
-        
-        config = configService.GetConfig(Path.Combine(configPath, "config.json"));
-
-        if (String.IsNullOrWhiteSpace(config.GamePath)) {
-            AnsiConsole.MarkupInterpolated(
-                $"[red]Config file does not include path to a dump of the game. [bold]Abort.[/][/]");
-            return false;
-        }
-
-        // Try to init compression
-        var compressionPath = Path.Combine(this.config.GamePath, "Pack", "ZsDic.pack.zs");
-        if (!File.Exists(compressionPath)) {
-            AnsiConsole.MarkupInterpolated($"[red]Could not find compression dictionary: {compressionPath
-            }\n[bold]Abort.[/][/]");
-            return false;
-        }
-
-        compression = new ZsCompression(compressionPath);
-        return true;
-    }
     
 }

@@ -2,7 +2,7 @@ using System.Buffers.Binary;
 using System.Collections;
 using System.Text;
 
-namespace TKMM.SarcTool.Special;
+namespace TKMM.SarcTool.Core;
 
 internal class GameDataListReader : IDisposable, IEnumerable<GameDataListChange> {
 
