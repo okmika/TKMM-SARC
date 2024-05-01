@@ -155,9 +155,13 @@ internal class PackageService {
 
         foreach (var entry in sarc) {
             var fileHash = Checksum.ComputeXxHash(entry.Value);
+
+            var filenameHashSource = (Path.Combine(pathRelativeToBase, Path.GetFileName(archivePath)) + "/" + entry.Key)
+                                     .Replace(Path.DirectorySeparatorChar, '/')
+                                     .Replace("romfs/", "");
             
             // Remove identical items from the SARC
-            if (IsFileIdentical(entry.Key, fileHash)) {
+            if (IsFileIdentical(filenameHashSource, fileHash) || IsFileIdentical(entry.Key, fileHash)) {
                 toRemove.Add(entry.Key);
             } else if (originalSarc != null) {
                 // Perform merge against the original file if we have an archive in the dump
