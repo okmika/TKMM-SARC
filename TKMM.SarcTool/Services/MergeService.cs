@@ -540,7 +540,7 @@ internal class MergeService {
     }
 
     private bool Initialize(string configPath) {
-        var shopsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "tkmm",
+        var shopsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "tkmm",
                                      "shops.json");
         shops = configService.GetShops(shopsPath);
 
