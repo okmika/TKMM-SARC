@@ -11,13 +11,11 @@ internal class ShopsMerger {
     private readonly Queue<ShopMergerEntry> shops = new Queue<ShopMergerEntry>();
     private readonly HashSet<string> allShops;
     private readonly Stack<Byml> overflowEntries = new Stack<Byml>();
-    private readonly bool verbose;
     
     public Func<string, ShopMergerEntry>? GetEntryForShop { get; set; }
 
     public ShopsMerger(SarcMerger merger, HashSet<string> allShops) {
         this.merger = merger;
-        this.verbose = verbose;
         this.allShops = allShops;
     }
 

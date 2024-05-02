@@ -20,6 +20,7 @@ internal class ConfigJson {
     
 }
 
+#nullable disable
 internal class ShopsJsonEntry {
     [JsonProperty("NPC ActorName")]
     public string ActorName { get; set; }
@@ -36,3 +37,4 @@ internal class ShopsJsonEntry {
        
     }
 }
+#nullable restore

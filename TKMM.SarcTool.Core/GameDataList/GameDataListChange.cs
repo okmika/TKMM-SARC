@@ -253,7 +253,7 @@ internal class GameDataListWriter : IDisposable {
 
 internal class GameDataListChange {
     public GameDataListChangeType Change;
-    public string Table;
+    public string Table = "";
     public uint Hash32;
     public ulong Hash64;
     public int ExtraByte;
@@ -287,13 +287,13 @@ internal class GameDataListChange {
         if (Values?.Length > 0) {
             for (int i = 0; i < Values.Length; i++) {
                 if (Values[i].Value is ulong[] uLongArray) {
-                    if (!AreArraysIdentical(uLongArray, compare.Values![i].Value as ulong[]))
+                    if (!AreArraysIdentical(uLongArray, (compare.Values![i].Value as ulong[])!))
                         return false;
                 } else if (Values[i].Value is uint[] uIntArray) {
-                    if (!AreArraysIdentical(uIntArray, compare.Values![i].Value as uint[]))
+                    if (!AreArraysIdentical(uIntArray, (compare.Values![i].Value as uint[])!))
                         return false;
                 } else if (Values[i].Value is float[] floatArray) {
-                    if (!AreArraysIdentical(floatArray, compare.Values![i].Value as float[]))
+                    if (!AreArraysIdentical(floatArray, (compare.Values![i].Value as float[])!))
                         return false;
                 } else {
                     if (!Values[i].Value.Equals(compare.Values![i].Value))
@@ -305,13 +305,13 @@ internal class GameDataListChange {
         if (DefaultValue?.Length > 0) {
             for (int i = 0; i < DefaultValue.Length; i++) {
                 if (DefaultValue[i].Value is ulong[] uLongArray) {
-                    if (!AreArraysIdentical(uLongArray, compare.DefaultValue![i].Value as ulong[]))
+                    if (!AreArraysIdentical(uLongArray, (compare.DefaultValue![i].Value as ulong[])!))
                         return false;
                 } else if (DefaultValue[i].Value is uint[] uIntArray) {
-                    if (!AreArraysIdentical(uIntArray, compare.DefaultValue![i].Value as uint[]))
+                    if (!AreArraysIdentical(uIntArray, (compare.DefaultValue![i].Value as uint[])!))
                         return false;
                 } else if (DefaultValue[i].Value is float[] floatArray) {
-                    if (!AreArraysIdentical(floatArray, compare.DefaultValue![i].Value as float[]))
+                    if (!AreArraysIdentical(floatArray, (compare.DefaultValue![i].Value as float[])!))
                         return false;
                 } else {
                     if (!DefaultValue[i].Value.Equals(compare.DefaultValue![i].Value))
@@ -343,6 +343,7 @@ internal class GameDataListChange {
     }
 }
 
+#nullable disable
 internal class GameDataListValue {
     public GameDataListChangeType Change;
     public GameDataListValueType Type;
@@ -392,6 +393,8 @@ internal class GameDataListValue {
     }
     
 }
+
+#nullable restore
 
 internal enum GameDataListChangeType : byte {
     Unknown = 0,
