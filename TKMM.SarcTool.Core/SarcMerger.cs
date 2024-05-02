@@ -90,6 +90,14 @@ public class SarcMerger {
     }
 
     /// <summary>
+    /// Perform merging on the selected packages asynchronously.
+    /// </summary>
+    /// <returns>A task that represents the merging work queued on the task pool.</returns>
+    public async Task MergeAsync() {
+        await Task.Run(Merge);
+    }
+
+    /// <summary>
     /// Evaluate the provided GameDataList (GDL) files and return whether
     /// there are any differences between the two. This is not a byte-for-byte
     /// compare, but rather a logical evaluation of the internal contents of the
@@ -117,6 +125,25 @@ public class SarcMerger {
 
         var merger = new GameDataListMerger();
         return merger.Compare(fileOneBytes, fileTwoBytes);
+    }
+
+    /// <summary>
+    /// Asynchronously evaluate the provided GameDataList (GDL) files and return whether
+    /// there are any differences between the two. This is not a byte-for-byte
+    /// compare, but rather a logical evaluation of the internal contents of the
+    /// GDL files.
+    /// </summary>
+    /// <param name="fileOne">The full path to the first compressed GDL file to compare</param>
+    /// <param name="fileTwo">The full path to the second compressed GDL file to compare</param>
+    /// <returns>True if there are any differences between the GDL files</returns>
+    /// <exception cref="Exception">
+    ///     Thrown if any of the provided GDL files is not compressed.
+    /// </exception>
+    /// <exception cref="ArgumentNullException">
+    ///     Thrown if any of the required parameters are null.
+    /// </exception>
+    public async Task<bool> HasGdlChangesAsync(string fileOne, string fileTwo) {
+        return await Task.Run(() => HasGdlChanges(fileOne, fileTwo));
     }
 
     private void InternalFlatMerge() {

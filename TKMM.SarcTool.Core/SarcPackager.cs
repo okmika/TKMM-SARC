@@ -93,6 +93,14 @@ public class SarcPackager {
     public void Package() {
         InternalMakePackage();
     }
+
+    /// <summary>
+    /// Perform packaging on the mod asynchronously.
+    /// </summary>
+    /// <returns>A task that represents the packaging work queued on the task pool.</returns>
+    public async Task PackageAsync() {
+        await Task.Run(Package);
+    }
     
 
     private void InternalMakePackage() {

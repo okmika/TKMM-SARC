@@ -76,6 +76,19 @@ public class SarcAssembler {
         
     }
 
+    /// <summary>
+    /// <para>Perform assembly on the selected mod asynchronously.</para>
+    ///
+    /// <para>
+    /// WARNING: This operation destructively overwrites
+    /// files in the mod folder and thus should be performed on a copy of the mod in case
+    /// the changes need to be reversed.</para>
+    /// </summary>
+    /// <returns>A task that represents the assembly work queued on the task pool.</returns>
+    public async Task AssembleAsync() {
+        await Task.Run(Assemble);
+    }
+
     private void InternalAssemble() {
 
         var supportedExtensions = new[] {"byml", "byaml"};
