@@ -146,7 +146,7 @@ public class SarcAssembler {
     }
 
     private void LoadArchiveCache() {
-        var archiveCachePath = Path.Combine(configPath, "archivemappings.bin");
+        var archiveCachePath = Path.Combine(Path.GetDirectoryName(configPath) ?? string.Empty, "archivemappings.bin");
 
         if (!File.Exists(archiveCachePath)) {
             CreateArchiveCache(archiveCachePath);

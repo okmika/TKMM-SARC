@@ -13,15 +13,14 @@ public class SarcMerger {
     private readonly ZsCompression compression;
     private readonly List<ShopsJsonEntry> shops;
 
-    private readonly string outputPath, basePath;
-    private readonly string[] modsList;
+    private readonly string outputPath;
+    private readonly string[] modFolderPaths;
     private readonly HandlerManager handlerManager;
 
     /// <summary>
     /// Creates a new instance of the <see cref="SarcMerger"/> class.
     /// </summary>
-    /// <param name="modsList">A list of mod folders within "basePath" to perform merging on, in the order of lowest to highest priority.</param>
-    /// <param name="basePath">The full path to the folder containing the list of mods to merge.</param>
+    /// <param name="modFolderPaths">A list of mod folders within "basePath" to perform merging on, in the order of lowest to highest priority.</param>
     /// <param name="outputPath">The full path to the location of the "romfs" folder in which to place the final merged files.</param>
     /// <param name="configPath">
     ///     The path to the location of the "config.json" file in standard NX Toolbox format, or
@@ -38,12 +37,11 @@ public class SarcMerger {
     ///     Thrown if any of the configuration files are not found, or if the compression
     ///     dictionary is missing.
     /// </exception>
-    public SarcMerger(IEnumerable<string> modsList, string basePath, string outputPath, string? configPath = null, string? shopsPath = null) {
-        ArgumentNullException.ThrowIfNull(modsList);
+    public SarcMerger(IEnumerable<string> modFolderPaths, string outputPath, string? configPath = null, string? shopsPath = null) {
+        ArgumentNullException.ThrowIfNull(modFolderPaths);
 
         this.outputPath = outputPath ?? throw new ArgumentNullException(nameof(outputPath));
-        this.basePath = basePath ?? throw new ArgumentNullException(nameof(basePath));
-        this.modsList = modsList.ToArray();
+        this.modFolderPaths = modFolderPaths.ToArray();
 
         this.handlerManager = new HandlerManager();
         
@@ -119,13 +117,13 @@ public class SarcMerger {
     }
 
     private void InternalFlatMerge() {
-        foreach (var modFolderName in modsList) {
-            Trace.TraceInformation("Processing {0}", modFolderName);
+        foreach (var modFolder in modFolderPaths) {
+            Trace.TraceInformation("Processing {0}", modFolder);
             
-            MergeFilesInMod(modFolderName);
+            MergeFilesInMod(modFolder);
             
-            Trace.TraceInformation("Processing GDL in {0}", modFolderName);
-            MergeGameDataList(modFolderName);
+            Trace.TraceInformation("Processing GDL in {0}", modFolder);
+            MergeGameDataList(modFolder);
         }
     }
 
@@ -133,7 +131,7 @@ public class SarcMerger {
 
         CleanPackagesInTarget();
 
-        foreach (var modFolderName in modsList) {
+        foreach (var modFolderName in modFolderPaths) {
             Trace.TraceInformation("Processing {0}", modFolderName);
             MergeArchivesInMod(modFolderName);
         }
@@ -143,13 +141,10 @@ public class SarcMerger {
 
     }
 
-    private void MergeFilesInMod(string modFolderName) {
-
-        // Get archive files in mod folder
-        var modFolderPath = Path.Combine(basePath, modFolderName);
+    private void MergeFilesInMod(string modFolderPath) {
 
         if (!Directory.Exists(modFolderPath))
-            throw new Exception($"Mod folder '{modFolderName}' does not exist under '{basePath}'");
+            throw new Exception($"The input mod folder '{modFolderPath}' could not be found.");
 
         var filesInModFolder =
             Directory.GetFiles(modFolderPath, "*", SearchOption.AllDirectories);
@@ -174,11 +169,11 @@ public class SarcMerger {
             if (prefixExclusions.Any(l => Path.GetFileName(filePath).StartsWith(l)))
                 continue;
             
-            var baseRomfs = Path.Combine(basePath, modFolderName, "romfs");
+            var baseRomfs = Path.Combine(modFolderPath, "romfs");
             var pathRelativeToBase = Path.GetRelativePath(baseRomfs, Path.GetDirectoryName(filePath)!);
 
             try {
-                MergeFile(filePath, modFolderName, pathRelativeToBase);
+                MergeFile(filePath, modFolderPath, pathRelativeToBase);
             } catch {
                 Trace.TraceError("Failed to merge {0}", filePath);
                 throw;
@@ -188,8 +183,7 @@ public class SarcMerger {
         }
     }
 
-    private void MergeGameDataList(string modFolderName) {
-        var modPath = Path.Combine(basePath, modFolderName);
+    private void MergeGameDataList(string modPath) {
         var gdlChangelog = Path.Combine(modPath, "romfs", "GameData", "GameDataList.gdlchangelog");
 
         if (!File.Exists(gdlChangelog))
@@ -312,24 +306,21 @@ public class SarcMerger {
         }
     }
 
-    private void MergeArchivesInMod(string modFolderName) {
+    private void MergeArchivesInMod(string modFolderPath) {
         
-        // Get archive files in mod folder
-        var modFolderPath = Path.Combine(basePath, modFolderName);
-
         if (!Directory.Exists(modFolderPath))
-            throw new Exception($"Mod folder '{modFolderName}' does not exist under '{basePath}'");
+            throw new Exception($"The input mod folder '{modFolderPath}' could not be found.");
         
         var filesInModFolder = Directory.GetFiles(modFolderPath, "*", SearchOption.AllDirectories);
 
         foreach (var filePath in filesInModFolder.Where(file => SarcPackager.SupportedExtensions.Any(ext => file.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))) {
 
-            var baseRomfs = Path.Combine(basePath, modFolderName, "romfs");
+            var baseRomfs = Path.Combine(modFolderPath, "romfs");
             var pathRelativeToBase = Path.GetRelativePath(baseRomfs, Path.GetDirectoryName(filePath)!);
-            Trace.TraceInformation("{0}: Merging {1}", modFolderName, filePath);
+            Trace.TraceInformation("{0}: Merging {1}", modFolderPath, filePath);
 
             try {
-                MergeArchive(modFolderName, filePath, pathRelativeToBase);
+                MergeArchive(modFolderPath, filePath, pathRelativeToBase);
             } catch (InvalidDataException) {
                 Trace.TraceWarning("Invalid archive: {0} - can't merge so overwriting by priority", filePath);
                 var targetArchivePath = Path.Combine(outputPath, pathRelativeToBase, Path.GetFileName(filePath));
@@ -338,7 +329,7 @@ public class SarcMerger {
                     File.Delete(targetArchivePath);
 
                 File.Copy(filePath, targetArchivePath, true);
-            } catch (Exception exc) {
+            } catch (Exception) {
                 Trace.TraceError("Failed to merge {0}", filePath);
                 throw;
             }
@@ -358,7 +349,7 @@ public class SarcMerger {
         }
     }
 
-    private void MergeArchive(string modFolderName, string archivePath, string pathRelativeToBase) {
+    private void MergeArchive(string modFolderPath, string archivePath, string pathRelativeToBase) {
         // If the output doesn't even exist just copy it over and we're done
         var targetArchivePath = Path.Combine(outputPath, pathRelativeToBase, Path.GetFileName(archivePath));
 
@@ -394,7 +385,7 @@ public class SarcMerger {
                 var fileExtension = Path.GetExtension(entry.Key);
 
                 if (String.IsNullOrWhiteSpace(fileExtension)) {
-                    Trace.TraceWarning("{0}: {1} does not have a file extension! Including as-is in {2}", modFolderName, 
+                    Trace.TraceWarning("{0}: {1} does not have a file extension! Including as-is in {2}", modFolderPath, 
                                        entry.Key, archivePath);
                     
                     targetSarc[entry.Key] = entry.Value;
@@ -406,7 +397,7 @@ public class SarcMerger {
                 var handler = handlerManager.GetHandlerInstance(fileExtension);
 
                 if (handler == null) {
-                    Trace.TraceWarning("{0}: No handler for {1} - overwriting contents of {2} in {3}", modFolderName,
+                    Trace.TraceWarning("{0}: No handler for {1} - overwriting contents of {2} in {3}", modFolderPath,
                                        fileExtension, entry.Key, targetArchivePath);
                     targetSarc[entry.Key] = entry.Value;
                     continue;
