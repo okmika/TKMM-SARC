@@ -89,8 +89,8 @@ public static class Program {
             }
             .LegalFilePathsOnly();
 
-        var packageCommandVersionsOption = new Option<string[]>("--versions", "Versions to try and package against");
-        packageCommandVersionsOption.SetDefaultValue(new[] {"100", "110", "111", "112", "120", "121"});
+        var packageCommandVersionsOption = new Option<int[]>("--versions", "Versions to try and package against");
+        packageCommandVersionsOption.SetDefaultValue(new[] {100, 110, 111, 112, 120, 121});
         packageCommandVersionsOption.AddValidator(val => {
             if (!val.Tokens.All(l => Int32.TryParse(l.Value, out _)))
                 val.ErrorMessage = "Specified versions must be a number.";
@@ -192,7 +192,7 @@ public static class Program {
         }
     }
 
-    private static void RunPackage(string outputPath, string modPath, string? configPath, string? checksumPath, string[] versions) {
+    private static void RunPackage(string outputPath, string modPath, string? configPath, string? checksumPath, int[] versions) {
         
         try {
             var packager = new SarcPackager(outputPath, modPath, configPath, checksumPath, versions);

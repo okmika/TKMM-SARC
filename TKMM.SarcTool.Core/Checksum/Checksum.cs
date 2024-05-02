@@ -1,6 +1,3 @@
-using System.IO.Hashing;
-using System.Text;
-
 namespace TKMM.SarcTool.Core;
 
 internal static class Checksum {
@@ -16,14 +13,14 @@ internal static class Checksum {
         return unchecked(~crc);
     }
 
-    public static ulong ComputeXxHash(string str) {
-        var bytes = Encoding.Unicode.GetBytes(str);
-        return ComputeXxHash(bytes);
-    }
+    // public static ulong ComputeXxHash(string str) {
+    //     var bytes = Encoding.Unicode.GetBytes(str);
+    //     return ComputeXxHash(bytes);
+    // }
 
-    public static ulong ComputeXxHash(ReadOnlySpan<byte> bytes) {
-        return XxHash64.HashToUInt64(bytes);
-    }
+    // public static ulong ComputeXxHash(ReadOnlySpan<byte> bytes) {
+    //     return XxHash64.HashToUInt64(bytes);
+    // }
 
     static uint[] CreateTable() {
         const uint poly = 0xEDB88320;
