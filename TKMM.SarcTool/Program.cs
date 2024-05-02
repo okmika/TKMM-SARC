@@ -164,7 +164,7 @@ public static class Program {
 
     private static void RunMerge(IEnumerable<string> modsList, string basePath, string outputPath, string? configPath) {
         try {
-            var merger = new SarcMerger(modsList, basePath, outputPath, configPath, null);
+            var merger = new SarcMerger(modsList, basePath, outputPath, configPath);
             merger.Merge();
         } catch (Exception exc) {
             AnsiConsole.WriteException(exc, ExceptionFormats.ShortenPaths | ExceptionFormats.ShortenTypes);
