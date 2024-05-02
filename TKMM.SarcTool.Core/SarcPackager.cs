@@ -4,12 +4,16 @@ using TKMM.SarcTool.Core.Model;
 
 namespace TKMM.SarcTool.Core;
 
+/// <summary>
+/// Packages changes in SARC archives, flat BYML files, and GameDataList into
+/// version-independent changelogs that can be applied using <see cref="SarcMerger"/>.
+/// </summary>
 public class SarcPackager {
     private readonly ConfigJson config;
     private readonly ZsCompression compression;
     private readonly ChecksumLookup checksumLookup;
     private readonly HandlerManager handlerManager;
-    private string[] versions;
+    private readonly string[] versions;
     private readonly string outputPath, modPath;
     
     internal static readonly string[] SupportedExtensions = new[] {
@@ -17,10 +21,38 @@ public class SarcPackager {
         ".bfarc.zs", ".bkres.zs", ".blarc.zs", ".genvb.zs", ".pack.zs", ".ta.zs"
     };
 
+    /// <summary>
+    /// Creates a new instance of the <see cref="SarcPackager"/> class
+    /// </summary>
+    /// <param name="outputPath">The full path to the location to save the packaged changelogs.</param>
+    /// <param name="modPath">
+    ///     The full path to the location of the mod to package. This folder should contain the
+    ///     "romfs" folder.
+    /// </param>
+    /// <param name="configPath">
+    ///     The path to the location of the "config.json" file in standard NX Toolbox format, or
+    ///     null to use the default location of local app data.
+    /// </param>
+    /// <param name="checksumPath">
+    ///     The path to the location of the "checksums.bin" file in standard TKMM format, or null
+    ///     to use the default location of local app data.
+    /// </param>
+    /// <param name="checkVersions">
+    ///     A string array of game versions to check, or null to check for all of them. The elements
+    ///     should be in the following format: "100" for 1.0, "110" for 1.1, and so on.
+    /// </param>
+    /// <exception cref="ArgumentNullException">
+    ///     Thrown if any of the required parameters are null.
+    /// </exception>
+    /// <exception cref="Exception">
+    ///     Thrown if the configuration file or checksum files are not found, or if the compression
+    ///     dictionary is missing.
+    /// </exception>
     public SarcPackager(string outputPath, string modPath, string? configPath = null, string? checksumPath = null, string[]? checkVersions = null) {
         this.handlerManager = new HandlerManager();
-        this.outputPath = outputPath;
-        this.modPath = modPath;
+        this.outputPath = outputPath ?? throw new ArgumentNullException(nameof(outputPath));
+        this.modPath = modPath ?? throw new ArgumentNullException(nameof(modPath));
+        
         configPath ??= Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "Totk", "config.json");
@@ -43,7 +75,7 @@ public class SarcPackager {
 
         var compressionPath = Path.Combine(this.config.GamePath, "Pack", "ZsDic.pack.zs");
         if (!File.Exists(compressionPath)) {
-            throw new Exception("Compression package not found: {this.config.GamePath}");
+            throw new Exception($"Compression package not found: {this.config.GamePath}");
         }
 
         compression = new ZsCompression(compressionPath);
@@ -55,11 +87,13 @@ public class SarcPackager {
 
     }
 
+    /// <summary>
+    /// Perform packaging on the mod.
+    /// </summary>
     public void Package() {
         InternalMakePackage();
     }
     
-   
 
     private void InternalMakePackage() {
         string[] filesInFolder = Directory.GetFiles(modPath, "*", SearchOption.AllDirectories);
@@ -144,9 +178,21 @@ public class SarcPackager {
                 
                 if (!originalSarc.ContainsKey(entry.Key))
                     continue;
+
+                // This is set regardless at this point
+                atLeastOneReplacement = true;
                 
                 // Otherwise, reconcile with the handler
-                var fileExtension = Path.GetExtension(entry.Key).Substring(1);
+                var fileExtension = Path.GetExtension(entry.Key);
+
+                if (String.IsNullOrWhiteSpace(fileExtension)) {
+                    Trace.TraceWarning("{0} in {1} does not have a file extension! Including as-is", entry.Key, archivePath);
+                    sarc[entry.Key] = entry.Value;
+                    continue;
+                }
+
+                // Drop the . from the extension
+                fileExtension = fileExtension.Substring(1);
                 var handler = handlerManager.GetHandlerInstance(fileExtension);
 
                 if (handler == null) {
@@ -161,7 +207,6 @@ public class SarcPackager {
                 });
 
                 sarc[entry.Key] = result.ToArray();
-                atLeastOneReplacement = true;
             }
         }
         
@@ -325,7 +370,7 @@ public class SarcPackager {
         }
     }
 
-    internal void WriteFileContents(string archivePath, Sarc sarc, bool isCompressed, bool isPackFile) {
+    private void WriteFileContents(string archivePath, Sarc sarc, bool isCompressed, bool isPackFile) {
         if (compression == null)
             throw new Exception("Compression not loaded");
 
@@ -349,7 +394,7 @@ public class SarcPackager {
         }
     }
 
-    internal Span<byte> GetFileContents(string archivePath, bool isCompressed, bool isPackFile) {
+    private Span<byte> GetFileContents(string archivePath, bool isCompressed, bool isPackFile) {
         if (compression == null)
             throw new Exception("Compression not loaded");
 

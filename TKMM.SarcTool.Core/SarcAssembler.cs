@@ -4,6 +4,13 @@ using TKMM.SarcTool.Core.Model;
 
 namespace TKMM.SarcTool.Core;
 
+/// <summary>
+/// Assembles all loose BYML files that were ordinarily
+/// a part of a SARC archive and returns them to their
+/// original archive. If the loose BYML file is modified,
+/// the modified version will be written to the original
+/// SARC archive.
+/// </summary>
 public class SarcAssembler {
     
     private readonly ConfigJson config;
@@ -13,7 +20,24 @@ public class SarcAssembler {
     private readonly string modPath;
     private readonly string configPath;
 
+    /// <summary>
+    /// Create an instance of the <see cref="SarcAssembler"/> class.
+    /// </summary>
+    /// <param name="modPath">The full path to the mod to perform assembly on.</param>
+    /// <param name="configPath">
+    ///     The path to the location of the "config.json" file in standard NX Toolbox format, or
+    ///     null to use the default location of local app data.
+    /// </param>
+    /// <exception cref="ArgumentNullException">
+    ///     Thrown if any of the required parameters are null.
+    /// </exception>
+    /// <exception cref="Exception">
+    ///     Thrown if any of the configuration files are not found, or if the compression
+    ///     dictionary is missing.
+    /// </exception>
     public SarcAssembler(string modPath, string? configPath = null) {
+        ArgumentNullException.ThrowIfNull(modPath);
+        
         configPath ??= Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "Totk", "config.json");
@@ -37,6 +61,14 @@ public class SarcAssembler {
         this.configPath = configPath;
     }
 
+    /// <summary>
+    /// <para>Perform assembly on the selected mod.</para>
+    ///
+    /// <para>
+    /// WARNING: This operation destructively overwrites
+    /// files in the mod folder and thus should be performed on a copy of the mod in case
+    /// the changes need to be reversed.</para>
+    /// </summary>
     public void Assemble() {
 
         LoadArchiveCache();
