@@ -14,7 +14,7 @@ public class SarcMerger {
     private readonly List<ShopsJsonEntry> shops;
 
     private readonly string outputPath;
-    private readonly IEnumerable<string> modFolderPaths;
+    private readonly string[] modFolderPaths;
     private readonly HandlerManager handlerManager;
 
     /// <summary>
@@ -41,7 +41,7 @@ public class SarcMerger {
         ArgumentNullException.ThrowIfNull(modFolderPaths);
 
         this.outputPath = outputPath ?? throw new ArgumentNullException(nameof(outputPath));
-        this.modFolderPaths = modFolderPaths;
+        this.modFolderPaths = modFolderPaths.ToArray();
 
         this.handlerManager = new HandlerManager();
         
