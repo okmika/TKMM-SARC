@@ -164,7 +164,7 @@ public static class Program {
 
     private static void RunMerge(IEnumerable<string> modsList, string basePath, string outputPath, string? configPath) {
         try {
-            var merger = new SarcMerger(modsList, basePath, outputPath, configPath);
+            var merger = new SarcMerger(modsList.Select(x => Path.Combine(basePath, x)), outputPath, configPath);
             merger.Merge();
         } catch (Exception exc) {
             AnsiConsole.WriteException(exc, ExceptionFormats.ShortenPaths | ExceptionFormats.ShortenTypes);
@@ -180,7 +180,7 @@ public static class Program {
                 return;
             }
 
-            var merger = new SarcMerger(new string[0], Environment.ProcessPath!, Environment.ProcessPath!, configPath, null);
+            var merger = new SarcMerger(new string[0], Environment.ProcessPath!, configPath, null);
             var result = merger.HasGdlChanges(filesArray[0], filesArray[1]);
 
             if (result)
