@@ -10,7 +10,7 @@
         <Description>Package and merge SARC archives and supported files.</Description>
         <RepositoryUrl>https://github.com/okmika/TKMM-SARC</RepositoryUrl>
         <PackageTags>sarc, tkmm</PackageTags>
-        <Version>1.0.0-beta.15</Version>
+        <Version>1.0.0-beta.17</Version>
     </PropertyGroup>
 
     <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">

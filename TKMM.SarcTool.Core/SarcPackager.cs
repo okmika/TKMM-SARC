@@ -31,11 +31,11 @@ public class SarcPackager {
     /// </param>
     /// <param name="configPath">
     ///     The path to the location of the "config.json" file in standard NX Toolbox format, or
-    ///     null to use the default location of local app data.
+    ///     null to use the default location in local app data.
     /// </param>
     /// <param name="checksumPath">
     ///     The path to the location of the "checksums.bin" file in standard TKMM format, or null
-    ///     to use the default location of local app data.
+    ///     to use the default location in local app data.
     /// </param>
     /// <param name="checkVersions">
     ///     A string array of game versions to check, or null to check for all of them. The elements

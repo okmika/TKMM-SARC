@@ -20,15 +20,18 @@ public class SarcMerger {
     /// <summary>
     /// Creates a new instance of the <see cref="SarcMerger"/> class.
     /// </summary>
-    /// <param name="modFolderPaths">A list of mod folders within "basePath" to perform merging on, in the order of lowest to highest priority.</param>
+    /// <param name="modFolderPaths">
+    ///     A list full paths to the mods to merge, in the order of lowest to highest priority. Each of these
+    ///     folders should contain the "romfs" folder.
+    /// </param>
     /// <param name="outputPath">The full path to the location of the "romfs" folder in which to place the final merged files.</param>
     /// <param name="configPath">
     ///     The path to the location of the "config.json" file in standard NX Toolbox format, or
-    ///     null to use the default location of local app data.
+    ///     null to use the default location in local app data.
     /// </param>
     /// <param name="shopsPath">
     ///     The full path to the "shops.json" file in TKMM format, for use by the shops merger, or
-    ///     null to use the default location of local app data.
+    ///     null to use the default location in local app data.
     /// </param>
     /// <exception cref="ArgumentNullException">
     ///     Thrown if any of the required parameters are null.

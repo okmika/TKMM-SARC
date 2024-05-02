@@ -14,7 +14,7 @@ namespace TKMM.SarcTool.Core;
 public class SarcAssembler {
     
     private readonly ConfigJson config;
-    private ZsCompression compression;
+    private readonly ZsCompression compression;
     private Dictionary<string, string> archiveMappings = new Dictionary<string, string>();
 
     private readonly string modPath;
@@ -23,10 +23,10 @@ public class SarcAssembler {
     /// <summary>
     /// Create an instance of the <see cref="SarcAssembler"/> class.
     /// </summary>
-    /// <param name="modPath">The full path to the mod to perform assembly on.</param>
+    /// <param name="modPath">The full path to the mod to perform assembly on. This folder should contain the "romfs" folder.</param>
     /// <param name="configPath">
     ///     The path to the location of the "config.json" file in standard NX Toolbox format, or
-    ///     null to use the default location of local app data.
+    ///     null to use the default location in local app data.
     /// </param>
     /// <exception cref="ArgumentNullException">
     ///     Thrown if any of the required parameters are null.
