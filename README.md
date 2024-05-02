@@ -3,7 +3,15 @@
 This project is part of [TKMM](https://github.com/tkmm-team) and is used as part of the mod manager's functionality. 
 It can also be used standalone if need be, using the instructions below.
 
-## What does the tool do?
+## Library
+
+There is a [library](https://github.com/okmika/TKMM-SARC/blob/main/docs/README.md) available on
+[NuGet](https://www.nuget.org/packages/TKMM.SarcTool.Core) that you can use in your own executables
+to assemble, package, and merge SARC archives, byml files, and GameDataList files.
+
+Alternatively, you can use the executables to perform all of those operations from the command line.
+
+## What does the executable tool do?
 
 `SarcTool` has three primary modes of operation: `assemble`, `package` and `merge`:
 
@@ -30,9 +38,7 @@ from each mod. It will also process any change logs to GameDataList files and me
 In cases where this kind of merging is not possible, `SarcTool` will replace the
 file with the one provided by a mod that has higher priority.
 
-## How to use the tool
-
-### For assembling flat files
+## Assembling flat files
 
 `SarcTool.exe assemble --mod [mod]`
 
@@ -63,7 +69,7 @@ Options:
 > (typically in `%localappdata%\totk` on Windows) to allow SarcTool to regenerate the database, otherwise the assembly
 > function will not work as intended.
 
-### For packaging archives
+## Packaging archives
 `SarcTool.exe package --mod [mod] --output [output]`
 
 - `mod`: The path to the mod folder you would like to package up
@@ -91,7 +97,7 @@ Options:
 
 ```
 
-### For merging archives
+## Merging archives
 `SarcTool.exe merge --mods [modlist] --base [base] --output [output]`
 
 - `base`: The path to the folder that holds all of your mods
