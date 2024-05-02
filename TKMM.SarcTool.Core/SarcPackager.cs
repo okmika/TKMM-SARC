@@ -1,6 +1,8 @@
 using System.Diagnostics;
+using System.Text.Json;
 using SarcLibrary;
 using TKMM.SarcTool.Core.Model;
+using TotkCommon;
 
 namespace TKMM.SarcTool.Core;
 
@@ -9,7 +11,7 @@ namespace TKMM.SarcTool.Core;
 /// version-independent changelogs that can be applied using <see cref="SarcMerger"/>.
 /// </summary>
 public class SarcPackager {
-    private readonly ConfigJson config;
+    private readonly Totk config;
     private readonly ZsCompression compression;
     private readonly ChecksumLookup checksumLookup;
     private readonly HandlerManager handlerManager;
@@ -68,7 +70,9 @@ public class SarcPackager {
         if (!File.Exists(checksumPath))
             throw new Exception($"{checksumPath} not found");
 
-        this.config = ConfigJson.Load(configPath);
+        using FileStream fs = File.OpenRead(configPath);
+        this.config = JsonSerializer.Deserialize<Totk>(fs)
+            ?? new();
 
         if (String.IsNullOrWhiteSpace(this.config.GamePath))
             throw new Exception("Game path is not defined in config.json");

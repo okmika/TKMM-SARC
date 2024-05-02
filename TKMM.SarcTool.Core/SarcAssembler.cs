@@ -1,6 +1,8 @@
 using System.Diagnostics;
+using System.Text.Json;
 using SarcLibrary;
 using TKMM.SarcTool.Core.Model;
+using TotkCommon;
 
 namespace TKMM.SarcTool.Core;
 
@@ -13,7 +15,7 @@ namespace TKMM.SarcTool.Core;
 /// </summary>
 public class SarcAssembler {
     
-    private readonly ConfigJson config;
+    private readonly Totk config;
     private ZsCompression compression;
     private Dictionary<string, string> archiveMappings = new Dictionary<string, string>();
 
@@ -45,7 +47,9 @@ public class SarcAssembler {
         if (!File.Exists(configPath))
             throw new Exception($"{configPath} not found");
 
-        this.config = ConfigJson.Load(configPath);
+        using FileStream fs = File.OpenRead(configPath);
+        this.config = JsonSerializer.Deserialize<Totk>(fs)
+            ?? new();
 
         if (String.IsNullOrWhiteSpace(this.config.GamePath))
             throw new Exception("Game path is not defined in config.json");
