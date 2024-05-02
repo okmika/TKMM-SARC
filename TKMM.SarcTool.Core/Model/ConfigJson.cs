@@ -1,28 +1,11 @@
-using Newtonsoft.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace TKMM.SarcTool.Core.Model;
 
-internal class ConfigJson {
-    public string? GamePath { get; set; }
-
-    public static ConfigJson Load(string path) {
-    
-        if (!File.Exists(path))
-            return new ConfigJson();
-
-        var configContents = File.ReadAllText(path);
-        var deserialized = JsonConvert.DeserializeObject<ConfigJson>(configContents);
-
-        return deserialized ?? new ConfigJson();
-    
-    }
-
-    
-}
-
 #nullable disable
 internal class ShopsJsonEntry {
-    [JsonProperty("NPC ActorName")]
+    [JsonPropertyName("NPC ActorName")]
     public string ActorName { get; set; }
 
     public static List<ShopsJsonEntry> Load(string path) {
@@ -31,7 +14,7 @@ internal class ShopsJsonEntry {
             return new List<ShopsJsonEntry>();
 
         var contents = File.ReadAllText(path);
-        var deserialized = JsonConvert.DeserializeObject<List<ShopsJsonEntry>>(contents);
+        var deserialized = JsonSerializer.Deserialize<List<ShopsJsonEntry>>(contents);
 
         return deserialized ?? new List<ShopsJsonEntry>();
        

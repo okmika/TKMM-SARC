@@ -1,33 +1,24 @@
-using System.Runtime.InteropServices;
+using TotkCommon.Components;
 
 namespace TKMM.SarcTool.Core;
 
 internal class ChecksumLookup {
     
-    private readonly Dictionary<ulong, ulong> checksums;
+    private readonly TotkChecksums checksums;
     
     public ChecksumLookup(string checksumBin) {
-        var data = MemoryMarshal.Cast<byte, ulong>(File.ReadAllBytes(checksumBin));
-        checksums = new Dictionary<ulong, ulong>();
-
-        LoadChecksums(data);
+        this.checksums = TotkChecksums.FromFile(checksumBin);
     }
 
-    public ulong? GetChecksum(ulong hash) {
-        if (!checksums.TryGetValue(hash, out var checksum))
-            return null;
+    // public ulong? GetChecksum(ulong hash) {
+    //     if (!checksums.TryGetValue(hash, out var checksum))
+    //         return null;
+    // 
+    //     return checksum;
+    // }
 
-        return checksum;
+    public bool IsVanillaFile(ReadOnlySpan<char> canonical, Span<byte> data, int version, out bool isEntryFound)
+    {
+        return this.checksums.IsFileVanilla(canonical, data, version, out isEntryFound);
     }
-
-    private void LoadChecksums(Span<ulong> checksumData) {
-        var size = checksumData.Length / 2;
-        var firstHalf = checksumData[..size];
-        var secondHalf = checksumData[size..];
-
-        for (int i = 0; i < size; i++) {
-            checksums.Add(firstHalf[i], secondHalf[i]);
-        }
-    }
-    
 }
