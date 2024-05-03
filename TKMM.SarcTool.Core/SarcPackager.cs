@@ -264,7 +264,7 @@ public class SarcPackager {
 
                 var isCompressed = gdlFile.EndsWith(".zs");
 
-                var vanillaFilePath = Path.Combine(config!.GamePath!, "GameData", Path.GetFileName(gdlFile));
+                var vanillaFilePath = Path.Combine(config.GamePath, "GameData", Path.GetFileName(gdlFile));
 
                 if (!File.Exists(vanillaFilePath)) {
                     throw new Exception("Failed to find vanilla GameDataList file");
@@ -337,7 +337,7 @@ public class SarcPackager {
 
     private void PackageFile(string filePath, string pathRelativeToBase) {
         var targetFilePath = Path.Combine(outputPath, "romfs", pathRelativeToBase, Path.GetFileName(filePath));
-        var vanillaFilePath = Path.Combine(config!.GamePath!, pathRelativeToBase, Path.GetFileName(filePath));
+        var vanillaFilePath = Path.Combine(config.GamePath, pathRelativeToBase, Path.GetFileName(filePath));
 
         // If the vanilla file doesn't exist just copy it over and we're done
         if (!File.Exists(vanillaFilePath)) {
@@ -380,31 +380,7 @@ public class SarcPackager {
             WriteFlatFileContents(targetFilePath, result, isCompressed);
         }
     }
-
-    private void WriteFileContents(string archivePath, Sarc sarc, bool isCompressed, bool isPackFile) {
-        if (compression == null)
-            throw new Exception("Compression not loaded");
-
-        using var memoryStream = new MemoryStream();
-        sarc.Write(memoryStream);
-
-        if (isCompressed) {
-            var type = CompressionType.Common;
-
-            // Change compression type
-            if (isPackFile)
-                type = CompressionType.Pack;
-            else if (archivePath.Contains("bcett", StringComparison.OrdinalIgnoreCase))
-                type = CompressionType.Bcett;
-            
-            File.WriteAllBytes(archivePath,
-                               compression.Compress(memoryStream.ToArray(), type)
-                                          .ToArray());
-        } else {
-            File.WriteAllBytes(archivePath, memoryStream.ToArray());
-        }
-    }
-
+    
     private Span<byte> GetFileContents(string archivePath, bool isCompressed, bool isPackFile) {
         if (compression == null)
             throw new Exception("Compression not loaded");
@@ -479,11 +455,6 @@ public class SarcPackager {
         return false;
     }
 
-    // private bool IsVanillaFile(string filename) {
-    //     var filenameHash = Checksum.ComputeXxHash(filename);
-    //     return checksumLookup!.GetChecksum(filenameHash) != null;
-    // }
-
     private bool IsArchiveIdentical(ReadOnlySpan<char> canonical, Span<byte> data, out bool isEntryFound) {
         isEntryFound = false;
         foreach (int version in this.versions) {
@@ -495,25 +466,6 @@ public class SarcPackager {
         return false;
     }
 
-    // private static string GetArchiveRelativeFilename(string archivePath, string pathRelativeToBase) {
-    //     // Relative filename
-    //     var pathSeparator = Path.DirectorySeparatorChar;
-    //     var archiveRelativeFilename = Path.Combine(pathRelativeToBase, Path.GetFileName(archivePath));
-    //     
-    //     // Replace the path separator with the one used by the Switch
-    //     if (pathSeparator != '/')
-    //         archiveRelativeFilename = archiveRelativeFilename.Replace(pathSeparator, '/');
-    // 
-    //     // Get rid of any romfs portion of the path
-    //     archiveRelativeFilename = archiveRelativeFilename.Replace("/romfs/", "")
-    //                                                      .Replace("romfs/", "");
-    // 
-    //     // Get rid of any .zs on the end if the file was originally compressed
-    //     if (archiveRelativeFilename.EndsWith(".zs"))
-    //         archiveRelativeFilename = archiveRelativeFilename.Substring(0, archiveRelativeFilename.Length - 3);
-    //     return archiveRelativeFilename;
-    // }
-
     private Sarc? GetOriginalArchive(string archiveFile, string pathRelativeToBase, bool isCompressed, bool isPackFile) {
 
         // Get rid of /romfs/ in the path
@@ -521,7 +473,7 @@ public class SarcPackager {
         pathRelativeToBase = pathRelativeToBase.Replace($"romfs{directoryChar}", "")
                                                .Replace($"{directoryChar}romfs{directoryChar}", "");
         
-        var archivePath = Path.Combine(config!.GamePath!, pathRelativeToBase, archiveFile);
+        var archivePath = Path.Combine(config.GamePath, pathRelativeToBase, archiveFile);
 
         if (!File.Exists(archivePath))
             return null;
@@ -538,7 +490,7 @@ public class SarcPackager {
                 type = CompressionType.Bcett;
             
             var compressedContents = File.ReadAllBytes(archivePath).AsSpan();
-            fileContents = compression!.Decompress(compressedContents, type);
+            fileContents = compression.Decompress(compressedContents, type);
         } else {
             fileContents = File.ReadAllBytes(archivePath).AsSpan();
         }

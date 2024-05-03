@@ -150,7 +150,7 @@ public class SarcAssembler {
     }
 
     private bool CopyVanillaArchive(string archiveRelativePath, string destination) {
-        var vanillaPath = GetAbsolutePath(archiveRelativePath, config!.GamePath!);
+        var vanillaPath = GetAbsolutePath(archiveRelativePath, config.GamePath);
 
         if (!File.Exists(vanillaPath))
             vanillaPath += ".zs";
@@ -179,13 +179,13 @@ public class SarcAssembler {
 
         Trace.TraceInformation("Creating archive cache (this may take a bit)");
 
-        var dumpArchives = Directory.GetFiles(config!.GamePath!, "*", SearchOption.AllDirectories)
+        var dumpArchives = Directory.GetFiles(config.GamePath, "*", SearchOption.AllDirectories)
                                     .Where(l => supportedExtensions.Any(ext => l.EndsWith(ext)))
                                     .ToList();
         
         foreach (var file in dumpArchives) {
             var isCompressed = file.EndsWith(".zs");
-            var relativeArchivePath = GetRelativePath(file, config!.GamePath!);
+            var relativeArchivePath = GetRelativePath(file, config.GamePath);
 
             try {
                 var archiveContents = GetFileContents(file, isCompressed, true);

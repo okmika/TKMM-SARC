@@ -224,7 +224,7 @@ public class SarcMerger {
             return;
         
         // Copy over vanilla files first
-        var vanillaGdlPath = Path.Combine(config!.GamePath!, "GameData");
+        var vanillaGdlPath = Path.Combine(config.GamePath, "GameData");
 
         if (!Directory.Exists(vanillaGdlPath))
             throw new Exception($"Failed to find vanilla GDL files at {vanillaGdlPath}");
@@ -273,7 +273,7 @@ public class SarcMerger {
         
         // This will be called if we ever need to request a shop file from the dump
         merger.GetEntryForShop = (actorName) => {
-            var dumpPath = Path.Combine(config!.GamePath!, "Pack", "Actor", $"{actorName}.pack.zs");
+            var dumpPath = Path.Combine(config.GamePath, "Pack", "Actor", $"{actorName}.pack.zs");
             var target = Path.Combine(outputPath, "Pack", "Actor", $"{actorName}.pack.zs");
 
             File.Copy(dumpPath, target, true);
@@ -538,7 +538,7 @@ public class SarcMerger {
     }
 
     private bool CopyOriginal(string archivePath, string pathRelativeToBase, string outputFile) {
-        var sourcePath = config!.GamePath!;
+        var sourcePath = config.GamePath;
         var originalFile = Path.Combine(sourcePath, pathRelativeToBase, Path.GetFileName(archivePath));
 
         if (File.Exists(originalFile)) {
