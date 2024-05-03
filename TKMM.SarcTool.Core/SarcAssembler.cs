@@ -177,13 +177,11 @@ public class SarcAssembler {
             ".pack.zs", ".pack"
         };
 
-        Trace.TraceInformation($"Preparing to create archive cache");
+        Trace.TraceInformation("Creating archive cache (this may take a bit)");
 
         var dumpArchives = Directory.GetFiles(config!.GamePath!, "*", SearchOption.AllDirectories)
                                     .Where(l => supportedExtensions.Any(ext => l.EndsWith(ext)))
                                     .ToList();
-
-        Trace.TraceInformation("Creating archive cache (this may take a bit)");
         
         foreach (var file in dumpArchives) {
             var isCompressed = file.EndsWith(".zs");
@@ -283,7 +281,7 @@ public class SarcAssembler {
     }
 
 
-    internal Span<byte> GetFileContents(string archivePath, bool isCompressed, bool isPackFile) {
+    private Span<byte> GetFileContents(string archivePath, bool isCompressed, bool isPackFile) {
         if (compression == null)
             throw new Exception("Compression not loaded");
 
@@ -307,7 +305,7 @@ public class SarcAssembler {
         return sourceFileContents;
     }
 
-    internal void WriteFileContents(string archivePath, Sarc sarc, bool isCompressed, bool isPackFile) {
+    private void WriteFileContents(string archivePath, Sarc sarc, bool isCompressed, bool isPackFile) {
         if (compression == null)
             throw new Exception("Compression not loaded");
 

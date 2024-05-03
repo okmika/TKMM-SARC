@@ -5,9 +5,8 @@ It can also be used standalone if need be, using the instructions below.
 
 ## Library
 
-There is a [library](https://github.com/okmika/TKMM-SARC/blob/main/docs/README.md) available on
-[NuGet](https://www.nuget.org/packages/TKMM.SarcTool.Core) that you can use in your own executables
-to assemble, package, and merge SARC archives, byml files, and GameDataList files.
+There is a [library](https://github.com/okmika/TKMM-SARC/blob/main/docs/README.md) that you can use in your own executables
+to assemble, package, and merge SARC archives, BYML files, and GameDataList files.
 
 Alternatively, you can use the executables to perform all of those operations from the command line.
 

@@ -29,11 +29,10 @@ packager.Package();
 
 ## Merging
 ```csharp
-var modsList = new[] { "ModOne", "ModTwo" };
-var basePath = @"C:\MyMods";
+var modsToMerge = new[] { "C:\MyMods\ModOne", "C:\MyMods\ModTwo" };
 var outputPath = @"C:\MergedMods";
 
-var merger = new SarcMerger(modsList, basePath, outputPath);
+var merger = new SarcMerger(modsToMerge, outputPath);
 merger.Merge();
 ```
 

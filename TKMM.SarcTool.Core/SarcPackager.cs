@@ -40,8 +40,8 @@ public class SarcPackager {
     ///     to use the default location in local app data.
     /// </param>
     /// <param name="checkVersions">
-    ///     A string array of game versions to check, or null to check for all of them. The elements
-    ///     should be in the following format: "100" for 1.0, "110" for 1.1, and so on.
+    ///     An integer array of game versions to check, or null to check for all of them. The elements
+    ///     should be in the following format: 100 for 1.0, 110 for 1.1, and so on.
     /// </param>
     /// <exception cref="ArgumentNullException">
     ///     Thrown if any of the required parameters are null.
