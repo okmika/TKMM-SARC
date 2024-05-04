@@ -6,29 +6,35 @@ using Revrs;
 namespace TKMM.SarcTool.Core;
 
 internal partial class BymlHandler {
-    public ReadOnlyMemory<byte> Package(string fileName, IList<MergeFile> files) {
+    public ReadOnlyMemory<byte> Package(string fileName, IList<MergeFile> files, out bool isEmptyChangelog) {
         var orderedFiles = files.OrderBy(l => l.Priority).ToList();
 
         var baseFile = Byml.FromBinary(orderedFiles[0].Contents.ToArray());
         var mergeFile = Byml.FromBinary(orderedFiles[1].Contents.ToArray());
 
-        return Package(baseFile, mergeFile);
+        return Package(baseFile, mergeFile, out isEmptyChangelog);
     }
 
-    private byte[] Package(Byml baseFile, Byml mergeFile) {
+    private byte[] Package(Byml baseFile, Byml mergeFile, out bool isEmptyChangelog) {
         Byml result;
         if (baseFile.Type is BymlNodeType.Array && mergeFile.Type is BymlNodeType.Array) {
             result = PackageArray(baseFile.GetArray(), mergeFile.GetArray());
+            isEmptyChangelog = !result.GetArray().Any();
         } else if (baseFile.Type is BymlNodeType.HashMap32 && mergeFile.Type is BymlNodeType.HashMap32) {
             result = PackageHashTable(baseFile.GetHashMap32(), mergeFile.GetHashMap32());
+            isEmptyChangelog = !result.GetHashMap32().Keys.Any();
         } else if (baseFile.Type is BymlNodeType.HashMap64 && mergeFile.Type is BymlNodeType.HashMap64) {
             result = PackageHashTable(baseFile.GetHashMap64(), mergeFile.GetHashMap64());
+            isEmptyChangelog = !result.GetHashMap64().Keys.Any();
         } else if (baseFile.Type is BymlNodeType.Map && mergeFile.Type is BymlNodeType.Map) {
             result = PackageMap(baseFile.GetMap(), mergeFile.GetMap());
+            isEmptyChangelog = !result.GetMap().Keys.Any();
         } else if (baseFile.Type == mergeFile.Type) {
             result = mergeFile;
+            isEmptyChangelog = false;
         } else {
             result = baseFile;
+            isEmptyChangelog = true;
         }
 
         return result.ToBinary(Endianness.Little);
