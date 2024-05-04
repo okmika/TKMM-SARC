@@ -230,7 +230,7 @@ public class SarcMerger {
                 throw;
             }
 
-            Trace.TraceInformation("Merged {0} into {1}", filePath, pathRelativeToBase);
+            
         }
     }
 
@@ -338,8 +338,8 @@ public class SarcMerger {
         var handler = handlerManager.GetHandlerInstance(fileExtension);
 
         if (handler == null) {
-            Trace.TraceWarning("{0}: No handler for {1} - overwriting contents of {2} in {3}", modFolderName,
-                               fileExtension, Path.GetFileName(filePath), pathRelativeToBase);
+            Trace.TraceInformation("{0}: Wrote {1} in {2} by priority", modFolderName,
+                               Path.GetFileName(filePath), pathRelativeToBase);
             
             File.Copy(filePath, targetFilePath, true);
         } else {
@@ -354,6 +354,9 @@ public class SarcMerger {
             });
 
             archiveHelper.WriteFlatFileContents(targetFilePath, result, targetIsCompressed);
+
+            Trace.TraceInformation("{0}: Wrote changelog for {1} into {2}", modFolderName, Path.GetFileName(filePath), 
+                                   pathRelativeToBase);
         }
     }
 
@@ -448,8 +451,8 @@ public class SarcMerger {
                 var handler = handlerManager.GetHandlerInstance(fileExtension);
 
                 if (handler == null) {
-                    Trace.TraceWarning("{0}: No handler for {1} - overwriting contents of {2} in {3}", modFolderPath,
-                                       fileExtension, entry.Key, targetArchivePath);
+                    Trace.TraceInformation("{0}: Wrote {1} in {2} as-is", modFolderPath,
+                                       entry.Key, targetArchivePath);
                     targetSarc[entry.Key] = entry.Value;
                     continue;
                 }
@@ -460,6 +463,8 @@ public class SarcMerger {
                 });
 
                 targetSarc[entry.Key] = result.ToArray();
+
+                Trace.TraceInformation("{0}: Merged changelog {1} to {2}", modFolderPath, entry.Key, targetArchivePath);
             }
         }
 

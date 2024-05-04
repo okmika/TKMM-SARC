@@ -216,7 +216,7 @@ public class SarcPackager {
                 var handler = handlerManager.GetHandlerInstance(fileExtension);
 
                 if (handler == null) {
-                    Trace.TraceWarning("No handler for {0} {1} - overwriting contents", archivePath, entry.Key);
+                    Trace.TraceInformation("Wrote {0} to {1} as-is", entry.Key, archivePath);
                     sarc[entry.Key] = entry.Value;
                     continue;
                 }
@@ -231,6 +231,8 @@ public class SarcPackager {
                     toRemove.Add(entry.Key);
 
                 sarc[entry.Key] = result.ToArray();
+
+                Trace.TraceInformation("Wrote changelog for {0} in {1}", entry.Key, archivePath);
             }
         }
         
@@ -350,7 +352,7 @@ public class SarcPackager {
 
             PackageFile(filePath, pathRelativeToBase);
 
-            Trace.TraceInformation("Created {0} in {1}", filePath, pathRelativeToBase);
+            
         }
     }
 
@@ -381,8 +383,7 @@ public class SarcPackager {
         var handler = handlerManager.GetHandlerInstance(fileExtension);
 
         if (handler == null) {
-            Trace.TraceWarning("No handler for {0} {1} - overwriting contents", Path.GetFileName(filePath), 
-                               pathRelativeToBase);
+            Trace.TraceInformation("Wrote {0} as-is", filePath);
             
             File.Copy(filePath, targetFilePath, true);
         } else {
@@ -397,6 +398,8 @@ public class SarcPackager {
             }, out _);
             
             archiveHelper.WriteFlatFileContents(targetFilePath, result, isCompressed);
+
+            Trace.TraceInformation("Wrote changelog for {0}", filePath);
         }
     }
     
