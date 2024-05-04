@@ -142,12 +142,17 @@ internal partial class BymlHandler {
 
         }
 
+        var deletions = new List<uint>();
         foreach (var item in baseNode) {
+
             if (!mergeNode.TryGetValue(item.Key, out _)) {
-                // Make the value of the node "~DEL~" so we know to remove it from the merged mod
-                baseNode[item.Key] = "~DEL~";
+                deletions.Add(item.Key);
             }
         }
+
+        // Handle a deleted item by setting its value to "~DEL~"
+        foreach (var deletion in deletions)
+            baseNode[deletion] = "~DEL~";
 
         return baseNode;
     }
@@ -183,14 +188,19 @@ internal partial class BymlHandler {
                     baseNode.Remove(item.Key);
             }
 
-        } 
-        
+        }
+
+        var deletions = new List<ulong>();
         foreach (var item in baseNode) {
+
             if (!mergeNode.TryGetValue(item.Key, out _)) {
-                // Make the value of the node "~DEL~" so we know to remove it from the merged mod
-                baseNode[item.Key] = "~DEL~";
+                deletions.Add(item.Key);
             }
         }
+
+        // Handle a deleted item by setting its value to "~DEL~"
+        foreach (var deletion in deletions)
+            baseNode[deletion] = "~DEL~";
 
         return baseNode;
     }
@@ -228,15 +238,17 @@ internal partial class BymlHandler {
 
         }
 
-        
+        var deletions = new List<string>();
         foreach (var item in baseNode) {
             
             if (!mergeNode.TryGetValue(item.Key, out _)) {
-                // Handle a deleted item by setting its value to "~DEL~"
-                baseNode[item.Key] = "~DEL~";
+                deletions.Add(item.Key);
             }
         }
 
+        // Handle a deleted item by setting its value to "~DEL~"
+        foreach(var deletion in deletions)
+            baseNode[deletion] = "~DEL~";
 
         return baseNode;
     }
