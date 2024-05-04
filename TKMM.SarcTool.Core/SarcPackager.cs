@@ -28,10 +28,9 @@ public class SarcPackager {
     /// <summary>
     /// Creates a new instance of the <see cref="SarcPackager"/> class
     /// </summary>
-    /// <param name="outputPath">The full path to the location to save the packaged changelogs.</param>
+    /// <param name="outputPath">The full path to the location of the "romfs" folder to save the packaged changelogs.</param>
     /// <param name="modPath">
-    ///     The full path to the location of the mod to package. This folder should contain the
-    ///     "romfs" folder.
+    ///     The full path to the location of the "romfs" folder of the mod to package
     /// </param>
     /// <param name="configPath">
     ///     The path to the location of the "config.json" file in standard NX Toolbox format, or
@@ -53,6 +52,12 @@ public class SarcPackager {
     ///     dictionary is missing.
     /// </exception>
     public SarcPackager(string outputPath, string modPath, string? configPath = null, string? checksumPath = null, int[]? checkVersions = null) {
+
+        if (!modPath.Contains($"{Path.DirectorySeparatorChar}romfs"))
+            throw new ArgumentException("Path must be to the \"romfs\" folder of the mod", nameof(modPath));
+        if (!outputPath.Contains($"{Path.DirectorySeparatorChar}romfs"))
+            throw new ArgumentException("Path must be to the \"romfs\" folder of the output", nameof(outputPath));
+        
         this.handlerManager = new HandlerManager();
         this.outputPath = outputPath ?? throw new ArgumentNullException(nameof(outputPath));
         this.modRomfsPath = modPath ?? throw new ArgumentNullException(nameof(modPath));
@@ -372,7 +377,7 @@ public class SarcPackager {
         var vanillaFileContents = archiveHelper.GetFlatFileContents(vanillaFilePath, isCompressed);
         var targetFileContents = archiveHelper.GetFlatFileContents(filePath, isCompressed);
 
-        var fileExtension = Path.GetExtension(filePath).Substring(1).ToLower();
+        var fileExtension = Path.GetExtension(filePath.Replace(".zs", "")).Substring(1).ToLower();
         var handler = handlerManager.GetHandlerInstance(fileExtension);
 
         if (handler == null) {

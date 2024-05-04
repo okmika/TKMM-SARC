@@ -38,6 +38,9 @@ public class SarcAssembler {
     ///     dictionary is missing.
     /// </exception>
     public SarcAssembler(string modPath, string? configPath = null) {
+        if (!modPath.Contains($"{Path.DirectorySeparatorChar}romfs"))
+            throw new ArgumentException("Path must be to the \"romfs\" folder of the mod", nameof(modPath));
+        
         ArgumentNullException.ThrowIfNull(modPath);
         
         configPath ??= Path.Combine(
@@ -161,11 +164,5 @@ public class SarcAssembler {
         File.Copy(vanillaPath, destination, true);
         return true;
     }
-
-    
-
-    
-
-
     
 }

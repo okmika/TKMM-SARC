@@ -46,8 +46,23 @@ public class SarcMerger {
     public SarcMerger(IEnumerable<string> modFolderPaths, string outputPath, string? configPath = null, string? shopsPath = null) {
         ArgumentNullException.ThrowIfNull(modFolderPaths);
 
-        this.outputPath = outputPath ?? throw new ArgumentNullException(nameof(outputPath));
+        if (!outputPath.Contains($"{Path.DirectorySeparatorChar}romfs"))
+            throw new ArgumentException("Path must be to the \"romfs\" folder of the output", nameof(outputPath));
+
         this.modFolderPaths = modFolderPaths.ToArray();
+
+        foreach (var folder in this.modFolderPaths) {
+            if (folder.Contains($"{Path.DirectorySeparatorChar}romfs"))
+                throw new ArgumentException($"{folder} cannot contain \"romfs\" - use the outer folder",
+                                            nameof(modFolderPaths));
+            
+            var romfsPath = Path.Combine(folder, "romfs");
+            if (!Directory.Exists(romfsPath))
+                throw new ArgumentException($"{romfsPath} does not exist", nameof(modFolderPaths));
+        }
+
+        this.outputPath = outputPath ?? throw new ArgumentNullException(nameof(outputPath));
+        
 
         this.handlerManager = new HandlerManager();
         
@@ -319,7 +334,7 @@ public class SarcMerger {
         var sourceFileContents = archiveHelper.GetFlatFileContents(filePath, sourceIsCompressed);
         var targetFileContents = archiveHelper.GetFlatFileContents(targetFilePath, targetIsCompressed);
 
-        var fileExtension = Path.GetExtension(filePath).Substring(1).ToLower();
+        var fileExtension = Path.GetExtension(filePath.Replace(".zs", "")).Substring(1).ToLower();
         var handler = handlerManager.GetHandlerInstance(fileExtension);
 
         if (handler == null) {
