@@ -68,11 +68,13 @@ internal partial class BymlHandler {
 
                 Byml modNode;
                 if (!identical && arrayContentsType == BymlNodeType.Map) {
-                    modNode = MergeMap(baseNode[i].GetMap(), mergeNode[i].GetMap());
+                    modNode = PackageMap(baseNode[i].GetMap(), mergeNode[i].GetMap());
                 } else if (!identical && arrayContentsType == BymlNodeType.HashMap32) {
-                    modNode = MergeHashTable(baseNode[i].GetHashMap32(), mergeNode[i].GetHashMap32());
+                    modNode = PackageHashTable(baseNode[i].GetHashMap32(), mergeNode[i].GetHashMap32());
                 } else if (!identical && arrayContentsType == BymlNodeType.HashMap64) {
-                    modNode = MergeHashTable(baseNode[i].GetHashMap64(), mergeNode[i].GetHashMap64());
+                    modNode = PackageHashTable(baseNode[i].GetHashMap64(), mergeNode[i].GetHashMap64());
+                } else if (!identical && arrayContentsType == BymlNodeType.Array) {
+                    modNode = PackageArray(baseNode[i].GetArray(), mergeNode[i].GetArray());
                 } else {
                     modNode = mergeNode[i];
                 }
@@ -131,9 +133,20 @@ internal partial class BymlHandler {
                 baseNode[item.Key] = PackageHashTable(baseNodeItem.GetHashMap64(), item.Value.GetHashMap64());
             else if (item.Value.Type is BymlNodeType.Map && baseNodeItem.Type is BymlNodeType.Map)
                 baseNode[item.Key] = PackageMap(baseNodeItem.GetMap(), item.Value.GetMap());
-            else if (item.Value.Type == baseNodeItem.Type)
-                baseNode[item.Key] = item.Value;
+            else if (item.Value.Type == baseNodeItem.Type) {
+                if (!Byml.ValueEqualityComparer.Default.Equals(baseNode[item.Key], item.Value))
+                    baseNode[item.Key] = item.Value;
+                else
+                    baseNode.Remove(item.Key);
+            }
 
+        }
+
+        foreach (var item in baseNode) {
+            if (!mergeNode.TryGetValue(item.Key, out _)) {
+                // Make the value of the node "~DEL~" so we know to remove it from the merged mod
+                baseNode[item.Key] = "~DEL~";
+            }
         }
 
         return baseNode;
@@ -163,9 +176,20 @@ internal partial class BymlHandler {
                 baseNode[item.Key] = PackageHashTable(baseNodeItem.GetHashMap64(), item.Value.GetHashMap64());
             else if (item.Value.Type is BymlNodeType.Map && baseNodeItem.Type is BymlNodeType.Map)
                 baseNode[item.Key] = PackageMap(baseNodeItem.GetMap(), item.Value.GetMap());
-            else if (item.Value.Type == baseNodeItem.Type)
-                baseNode[item.Key] = item.Value;
+            else if (item.Value.Type == baseNodeItem.Type) {
+                if (!Byml.ValueEqualityComparer.Default.Equals(baseNode[item.Key], item.Value))
+                    baseNode[item.Key] = item.Value;
+                else
+                    baseNode.Remove(item.Key);
+            }
 
+        } 
+        
+        foreach (var item in baseNode) {
+            if (!mergeNode.TryGetValue(item.Key, out _)) {
+                // Make the value of the node "~DEL~" so we know to remove it from the merged mod
+                baseNode[item.Key] = "~DEL~";
+            }
         }
 
         return baseNode;
@@ -195,8 +219,12 @@ internal partial class BymlHandler {
                 baseNode[item.Key] = PackageHashTable(baseNodeItem.GetHashMap64(), item.Value.GetHashMap64());
             else if (item.Value.Type is BymlNodeType.Map && baseNodeItem.Type is BymlNodeType.Map)
                 baseNode[item.Key] = PackageMap(baseNodeItem.GetMap(), item.Value.GetMap());
-            else if (item.Value.Type == baseNodeItem.Type)
-                baseNode[item.Key] = item.Value;
+            else if (item.Value.Type == baseNodeItem.Type) {
+                if (!Byml.ValueEqualityComparer.Default.Equals(baseNode[item.Key], item.Value))
+                    baseNode[item.Key] = item.Value;
+                else
+                    baseNode.Remove(item.Key);
+            }
 
         }
 
