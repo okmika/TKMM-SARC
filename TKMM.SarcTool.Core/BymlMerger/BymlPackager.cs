@@ -228,21 +228,15 @@ internal partial class BymlHandler {
 
         }
 
-        var nodesToRemove = new List<string>();
+        
         foreach (var item in baseNode) {
             
             if (!mergeNode.TryGetValue(item.Key, out _)) {
-                // Handle a deleted item
-                nodesToRemove.Add(item.Key);
+                // Handle a deleted item by setting its value to "~DEL~"
+                baseNode[item.Key] = "~DEL~";
             }
         }
 
-        // Remove and re-add with the "~DEL~" prefix so we know to remove the key
-        foreach (var node in nodesToRemove) {
-            var item = baseNode[node];
-            baseNode.Remove(node);
-            baseNode.Add("~DEL~" + node, item);
-        }
 
         return baseNode;
     }
