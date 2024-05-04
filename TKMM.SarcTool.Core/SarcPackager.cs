@@ -117,22 +117,25 @@ public class SarcPackager {
     
 
     private void InternalMakePackage() {
-        string[] filesInFolder = Directory.GetFiles(modRomfsPath, "*", SearchOption.AllDirectories);
-        
-        foreach (var filePath in filesInFolder.Where(file => SupportedExtensions.Any(ext => file.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))) {
+        var filesInFolder = Directory.GetFiles(modRomfsPath, "*", SearchOption.AllDirectories)
+                                     .Where(file => SupportedExtensions.Any(
+                                                ext => file.EndsWith(ext, StringComparison.OrdinalIgnoreCase)));
+
+
+        Parallel.ForEach(filesInFolder, filePath => {
             var pathRelativeToBase = Path.GetRelativePath(modRomfsPath, Path.GetDirectoryName(filePath)!);
             var destinationPath = Path.Combine(outputPath, pathRelativeToBase);
             if (!Directory.Exists(destinationPath))
                 Directory.CreateDirectory(destinationPath);
 
             var outputFilePath = Path.Combine(destinationPath, Path.GetFileName(filePath));
-            
+
             try {
                 var result = HandleArchive(filePath, pathRelativeToBase);
 
                 if (result.Length == 0) {
                     Trace.TraceInformation("Omitting {0}: Same as vanilla", filePath);
-                    continue;
+                    return;
                 }
 
                 // Copy to destination
@@ -146,7 +149,7 @@ public class SarcPackager {
                 Trace.TraceInformation("Packaged {0}", outputFilePath);
             } catch (Exception exc) {
                 Trace.TraceError("Failed to package {0} - Error: {1} - skipping", filePath, exc.Message);
-                
+
                 if (File.Exists(outputFilePath)) {
                     Trace.TraceWarning("Overwriting {0}", outputFilePath);
                     File.Delete(outputFilePath);
@@ -154,8 +157,8 @@ public class SarcPackager {
 
                 File.Copy(filePath, outputFilePath, true);
             }
-        }
-
+        });
+        
         Trace.TraceInformation("Packaging flat files to {0}", outputPath);
         PackageFilesInMod();
 
@@ -335,25 +338,25 @@ public class SarcPackager {
         var extensionExclusions = new[] {".rstbl.byml", ".rstbl.byml.zs"};
         var prefixExclusions = new[] {"GameDataList.Product"};
 
-        foreach (var filePath in filesInModFolder) {
+        Parallel.ForEach(filesInModFolder, filePath => {
             if (!supportedFlatExtensions.Any(l => filePath.EndsWith(l)))
-                continue;
+                return;
 
-            if (folderExclusions.Any(l => filePath.Contains(Path.DirectorySeparatorChar + l + Path.DirectorySeparatorChar)))
-                continue;
+            if (folderExclusions.Any(
+                    l => filePath.Contains(Path.DirectorySeparatorChar + l + Path.DirectorySeparatorChar)))
+                return;
 
             if (extensionExclusions.Any(l => filePath.EndsWith(l)))
-                continue;
+                return;
 
             if (prefixExclusions.Any(l => Path.GetFileName(filePath).StartsWith(l)))
-                continue;
+                return;
 
             var pathRelativeToBase = Path.GetRelativePath(this.modRomfsPath, Path.GetDirectoryName(filePath)!);
 
             PackageFile(filePath, pathRelativeToBase);
-
-            
-        }
+        });
+        
     }
 
     private void PackageFile(string filePath, string pathRelativeToBase) {

@@ -207,19 +207,20 @@ public class SarcMerger {
         var extensionExclusions = new[] {".rstbl.byml", ".rstbl.byml.zs"};
         var prefixExclusions = new[] {"GameDataList.Product"};
 
-        foreach (var filePath in filesInModFolder) {
+        Parallel.ForEach(filesInModFolder, filePath => {
             if (!supportedFlatExtensions.Any(l => filePath.EndsWith(l)))
-                continue;
+                return;
 
-            if (folderExclusions.Any(l => filePath.Contains(Path.DirectorySeparatorChar + l + Path.DirectorySeparatorChar)))
-                continue;
+            if (folderExclusions.Any(
+                    l => filePath.Contains(Path.DirectorySeparatorChar + l + Path.DirectorySeparatorChar)))
+                return;
 
             if (extensionExclusions.Any(l => filePath.EndsWith(l)))
-                continue;
+                return;
 
             if (prefixExclusions.Any(l => Path.GetFileName(filePath).StartsWith(l)))
-                continue;
-            
+                return;
+
             var baseRomfs = Path.Combine(modFolderPath, "romfs");
             var pathRelativeToBase = Path.GetRelativePath(baseRomfs, Path.GetDirectoryName(filePath)!);
 
@@ -229,9 +230,8 @@ public class SarcMerger {
                 Trace.TraceError("Failed to merge {0}", filePath);
                 throw;
             }
-
-            
-        }
+        });
+        
     }
 
     private void MergeGameDataList(string modPath) {
@@ -364,11 +364,12 @@ public class SarcMerger {
         
         if (!Directory.Exists(modFolderPath))
             throw new Exception($"The input mod folder '{modFolderPath}' could not be found.");
-        
-        var filesInModFolder = Directory.GetFiles(modFolderPath, "*", SearchOption.AllDirectories);
 
-        foreach (var filePath in filesInModFolder.Where(file => SarcPackager.SupportedExtensions.Any(ext => file.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))) {
+        var filesInModFolder = Directory.GetFiles(modFolderPath, "*", SearchOption.AllDirectories)
+                                        .Where(file => SarcPackager.SupportedExtensions.Any(
+                                                   ext => file.EndsWith(ext, StringComparison.OrdinalIgnoreCase)));
 
+        Parallel.ForEach(filesInModFolder, filePath => {
             var baseRomfs = Path.Combine(modFolderPath, "romfs");
             var pathRelativeToBase = Path.GetRelativePath(baseRomfs, Path.GetDirectoryName(filePath)!);
             Trace.TraceInformation("{0}: Merging {1}", modFolderPath, filePath);
@@ -387,7 +388,7 @@ public class SarcMerger {
                 Trace.TraceError("Failed to merge {0}", filePath);
                 throw;
             }
-        }
+        });
         
     }
 
