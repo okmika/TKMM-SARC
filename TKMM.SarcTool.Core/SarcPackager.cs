@@ -410,9 +410,6 @@ public class SarcPackager {
     private bool IsInVanillaArchive(string canonical, string archivePath) {
         var relativeArchivePath = archiveHelper.GetRelativePath(archivePath, modRomfsPath);
 
-        if (canonical.Contains("Weapon_Sword_Base.engine__actor__ActorParam"))
-            Trace.TraceInformation("!!");
-
         if (archiveCache.TryGetValue(canonical, out var cacheResult)) {
             return cacheResult.Equals(relativeArchivePath, StringComparison.OrdinalIgnoreCase);
         }
