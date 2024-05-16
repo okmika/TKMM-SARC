@@ -673,15 +673,21 @@ internal class GameDataListMerger {
 
     private GameDataListValue GetValue(Byml value, GameDataListValueType valueType) {
         var outputValue = new GameDataListValue();
+        
+        // Needed to work around int64 node types that are represented as int32 instead
+        if (valueType == GameDataListValueType.Int64 && value.Type == BymlNodeType.Int)
+            value = (long)value.GetInt();
+        else if (valueType == GameDataListValueType.UInt64 && value.Type == BymlNodeType.UInt32)
+            value = (ulong)value.GetUInt32();
 
         outputValue.Value = valueType switch {
             GameDataListValueType.Boolean => value.GetBool(),
             GameDataListValueType.Float => value.GetFloat(),
             GameDataListValueType.Int32 => value.GetInt(),
-            GameDataListValueType.Int64 => value.Type == BymlNodeType.Int64 ? value.GetInt64() : value.GetInt(),
+            GameDataListValueType.Int64 => value.GetInt64(),
             GameDataListValueType.String => value.GetString(),
             GameDataListValueType.UInt32 => value.GetUInt32(),
-            GameDataListValueType.UInt64 => value.Type == BymlNodeType.UInt64 ? value.GetUInt64() : value.GetUInt32(),
+            GameDataListValueType.UInt64 => value.GetUInt64(),
             _ => throw new NotSupportedException($"Unsupported value type {valueType}")
         };
 
