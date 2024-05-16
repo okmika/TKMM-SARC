@@ -194,6 +194,9 @@ internal class GameDataListMerger {
 
             WriteValueArray(change.DefaultValue, item["DefaultValue"]);
         } else if (table == "Struct") {
+            if (change.Change == GameDataListChangeType.Add)
+                item["DefaultValue"] = new BymlArray();
+            
             WriteStructArray(change.DefaultValue, item["DefaultValue"]);
         } else if (table == "UInt") {
             item["DefaultValue"] = (uint)change.DefaultValue[0].Value;
