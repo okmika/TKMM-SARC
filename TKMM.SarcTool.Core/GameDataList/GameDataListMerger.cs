@@ -180,7 +180,7 @@ internal class GameDataListMerger {
             
             WriteValueArray(change.DefaultValue, item["DefaultValue"]);
         } else if (table == "Int") {
-            item["DefaultValue"] = (int)change.Values[0].Value;
+            item["DefaultValue"] = (int)change.DefaultValue[0].Value;
         } else if (table == "IntArray") {
             if (change.Change == GameDataListChangeType.Add)
                 item["DefaultValue"] = new BymlArray();
