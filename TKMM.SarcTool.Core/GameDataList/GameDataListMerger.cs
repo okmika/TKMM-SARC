@@ -678,10 +678,10 @@ internal class GameDataListMerger {
             GameDataListValueType.Boolean => value.GetBool(),
             GameDataListValueType.Float => value.GetFloat(),
             GameDataListValueType.Int32 => value.GetInt(),
-            GameDataListValueType.Int64 => value.GetInt64(),
+            GameDataListValueType.Int64 => value.Type == BymlNodeType.Int64 ? value.GetInt64() : value.GetInt(),
             GameDataListValueType.String => value.GetString(),
             GameDataListValueType.UInt32 => value.GetUInt32(),
-            GameDataListValueType.UInt64 => value.GetUInt64(),
+            GameDataListValueType.UInt64 => value.Type == BymlNodeType.UInt64 ? value.GetUInt64() : value.GetUInt32(),
             _ => throw new NotSupportedException($"Unsupported value type {valueType}")
         };
 
