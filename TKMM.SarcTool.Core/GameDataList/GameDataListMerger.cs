@@ -319,6 +319,8 @@ internal class GameDataListMerger {
             return new Byml(valueInt);
         else if (value is long valueLong)
             return new Byml(valueLong);
+        else if (value is bool valueBool)
+            return new Byml(valueBool);
         else
             throw new Exception("Unknown value type");
     }
