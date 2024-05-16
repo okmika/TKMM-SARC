@@ -155,7 +155,7 @@ public class SarcPackager {
                     File.Delete(outputFilePath);
                 }
 
-                File.Copy(filePath, outputFilePath, true);
+                CopyHelper.CopyFile(filePath, outputFilePath);
             }
         });
         
@@ -369,7 +369,7 @@ public class SarcPackager {
 
         // If the vanilla file doesn't exist just copy it over and we're done
         if (!File.Exists(vanillaFilePath)) {
-            File.Copy(filePath, targetFilePath, true);
+            CopyHelper.CopyFile(filePath, targetFilePath);
             return;
         }
         
@@ -388,7 +388,7 @@ public class SarcPackager {
         if (handler == null) {
             Trace.TraceInformation("Wrote {0} as-is", filePath);
             
-            File.Copy(filePath, targetFilePath, true);
+            CopyHelper.CopyFile(filePath, targetFilePath);
         } else {
             var relativeFilename = Path.Combine(pathRelativeToBase, Path.GetFileName(filePath));
 

@@ -161,7 +161,7 @@ public class SarcAssembler {
         if (!File.Exists(vanillaPath))
             return false;
 
-        File.Copy(vanillaPath, destination, true);
+        CopyHelper.CopyFile(vanillaPath, destination);
         return true;
     }
     

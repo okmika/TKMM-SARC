@@ -256,7 +256,7 @@ public class SarcMerger {
             Directory.CreateDirectory(Path.GetDirectoryName(outputGdl)!);
             
             if (!File.Exists(outputGdl))
-                File.Copy(vanillaFile, outputGdl, true);
+                CopyHelper.CopyFile(vanillaFile, outputGdl);
         }
 
         var gdlFiles = Directory.GetFiles(Path.Combine(outputPath, "GameData"))
@@ -293,7 +293,7 @@ public class SarcMerger {
             var dumpPath = Path.Combine(config.GamePath, "Pack", "Actor", $"{actorName}.pack.zs");
             var target = Path.Combine(outputPath, "Pack", "Actor", $"{actorName}.pack.zs");
 
-            File.Copy(dumpPath, target, true);
+            CopyHelper.CopyFile(dumpPath, target);
 
             return new ShopsMerger.ShopMergerEntry(actorName, target);
         };
@@ -322,7 +322,7 @@ public class SarcMerger {
 
             // Copy the mod's file to the output if we otherwise failed to copy the file from the dump
             if (!didCopy) {
-                File.Copy(filePath, targetFilePath, true);
+                CopyHelper.CopyFile(filePath, targetFilePath);
                 return;
             }
         }
@@ -341,7 +341,7 @@ public class SarcMerger {
             Trace.TraceInformation("{0}: Wrote {1} in {2} by priority", modFolderName,
                                Path.GetFileName(filePath), pathRelativeToBase);
             
-            File.Copy(filePath, targetFilePath, true);
+            CopyHelper.CopyFile(filePath, targetFilePath);
         } else {
             var relativeFilename = Path.Combine(pathRelativeToBase, Path.GetFileName(filePath));
 
@@ -383,7 +383,7 @@ public class SarcMerger {
                 if (File.Exists(targetArchivePath))
                     File.Delete(targetArchivePath);
 
-                File.Copy(filePath, targetArchivePath, true);
+                CopyHelper.CopyFile(filePath, targetArchivePath);
             } catch (Exception) {
                 Trace.TraceError("Failed to merge {0}", filePath);
                 throw;
@@ -416,7 +416,7 @@ public class SarcMerger {
             
             // Copy the mod's package to the output if we otherwise failed to copy the file from the dump
             if (!didCopy) {
-                File.Copy(archivePath, targetArchivePath, true);
+                CopyHelper.CopyFile(archivePath, targetArchivePath);
                 return;
             }
         }
@@ -478,7 +478,7 @@ public class SarcMerger {
         var originalFile = Path.Combine(sourcePath, pathRelativeToBase, Path.GetFileName(archivePath));
 
         if (File.Exists(originalFile)) {
-            File.Copy(originalFile, outputFile, true);
+            CopyHelper.CopyFile(originalFile, outputFile);
             return true;
         }
 

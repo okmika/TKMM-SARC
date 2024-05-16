@@ -118,7 +118,8 @@ public class GdlPackager {
             Directory.CreateDirectory(Path.GetDirectoryName(outputGdl)!);
 
             if (!File.Exists(outputGdl))
-                File.Copy(vanillaFile, outputGdl, true);
+                CopyHelper.CopyFile(vanillaFile, outputGdl);
+            
         }
 
         var gdlFiles = Directory.GetFiles(outputPath)
