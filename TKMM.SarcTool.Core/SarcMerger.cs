@@ -18,6 +18,7 @@ public class SarcMerger {
     private readonly string outputPath;
     private readonly string[] modFolderPaths;
     private readonly HandlerManager handlerManager;
+    private readonly ArchiveHelper archiveHelper;
 
     /// <summary>
     /// Creates a new instance of the <see cref="SarcMerger"/> class.
@@ -26,7 +27,7 @@ public class SarcMerger {
     ///     A list full paths to the mods to merge, in the order of lowest to highest priority. Each of these
     ///     folders should contain the "romfs" folder.
     /// </param>
-    /// <param name="outputPath">The full path to the location of the "romfs" folder in which to place the final merged files.</param>
+    /// <param name="outputPath">The full path to the location of the folder in which to place the final merged files.</param>
     /// <param name="configPath">
     ///     The path to the location of the "config.json" file in standard NX Toolbox format, or
     ///     null to use the default location in local app data.
@@ -45,8 +46,23 @@ public class SarcMerger {
     public SarcMerger(IEnumerable<string> modFolderPaths, string outputPath, string? configPath = null, string? shopsPath = null) {
         ArgumentNullException.ThrowIfNull(modFolderPaths);
 
-        this.outputPath = outputPath ?? throw new ArgumentNullException(nameof(outputPath));
+        if (!outputPath.Contains($"{Path.DirectorySeparatorChar}romfs"))
+            throw new ArgumentException("Path must be to the \"romfs\" folder of the output", nameof(outputPath));
+
         this.modFolderPaths = modFolderPaths.ToArray();
+
+        foreach (var folder in this.modFolderPaths) {
+            if (folder.Contains($"{Path.DirectorySeparatorChar}romfs"))
+                throw new ArgumentException($"{folder} cannot contain \"romfs\" - use the outer folder",
+                                            nameof(modFolderPaths));
+            
+            var romfsPath = Path.Combine(folder, "romfs");
+            if (!Directory.Exists(romfsPath))
+                throw new ArgumentException($"{romfsPath} does not exist", nameof(modFolderPaths));
+        }
+
+        this.outputPath = outputPath ?? throw new ArgumentNullException(nameof(outputPath));
+        
 
         this.handlerManager = new HandlerManager();
         
@@ -76,8 +92,9 @@ public class SarcMerger {
             throw new Exception($"{shopsPath} not found");
 
         this.shops = ShopsJsonEntry.Load(shopsPath);
-        compression = new ZsCompression(compressionPath);
-        
+        this.compression = new ZsCompression(compressionPath);
+        this.archiveHelper = new ArchiveHelper(compression);
+
     }
 
     /// <summary>
@@ -124,8 +141,8 @@ public class SarcMerger {
             throw new Exception("Only compressed (.zs) GDL files are supported");
         }
 
-        var fileOneBytes = GetFlatFileContents(fileOne, true);
-        var fileTwoBytes = GetFlatFileContents(fileTwo, true);
+        var fileOneBytes = archiveHelper.GetFlatFileContents(fileOne, true);
+        var fileTwoBytes = archiveHelper.GetFlatFileContents(fileTwo, true);
 
         var merger = new GameDataListMerger();
         return merger.Compare(fileOneBytes, fileTwoBytes);
@@ -190,19 +207,20 @@ public class SarcMerger {
         var extensionExclusions = new[] {".rstbl.byml", ".rstbl.byml.zs"};
         var prefixExclusions = new[] {"GameDataList.Product"};
 
-        foreach (var filePath in filesInModFolder) {
+        Parallel.ForEach(filesInModFolder, filePath => {
             if (!supportedFlatExtensions.Any(l => filePath.EndsWith(l)))
-                continue;
+                return;
 
-            if (folderExclusions.Any(l => filePath.Contains(Path.DirectorySeparatorChar + l + Path.DirectorySeparatorChar)))
-                continue;
+            if (folderExclusions.Any(
+                    l => filePath.Contains(Path.DirectorySeparatorChar + l + Path.DirectorySeparatorChar)))
+                return;
 
             if (extensionExclusions.Any(l => filePath.EndsWith(l)))
-                continue;
+                return;
 
             if (prefixExclusions.Any(l => Path.GetFileName(filePath).StartsWith(l)))
-                continue;
-            
+                return;
+
             var baseRomfs = Path.Combine(modFolderPath, "romfs");
             var pathRelativeToBase = Path.GetRelativePath(baseRomfs, Path.GetDirectoryName(filePath)!);
 
@@ -212,9 +230,8 @@ public class SarcMerger {
                 Trace.TraceError("Failed to merge {0}", filePath);
                 throw;
             }
-
-            Trace.TraceInformation("Merged {0} into {1}", filePath, pathRelativeToBase);
-        }
+        });
+        
     }
 
     private void MergeGameDataList(string modPath) {
@@ -224,7 +241,7 @@ public class SarcMerger {
             return;
         
         // Copy over vanilla files first
-        var vanillaGdlPath = Path.Combine(config!.GamePath!, "GameData");
+        var vanillaGdlPath = Path.Combine(config.GamePath, "GameData");
 
         if (!Directory.Exists(vanillaGdlPath))
             throw new Exception($"Failed to find vanilla GDL files at {vanillaGdlPath}");
@@ -239,7 +256,7 @@ public class SarcMerger {
             Directory.CreateDirectory(Path.GetDirectoryName(outputGdl)!);
             
             if (!File.Exists(outputGdl))
-                File.Copy(vanillaFile, outputGdl, true);
+                CopyHelper.CopyFile(vanillaFile, outputGdl);
         }
 
         var gdlFiles = Directory.GetFiles(Path.Combine(outputPath, "GameData"))
@@ -249,12 +266,12 @@ public class SarcMerger {
         var changelogBytes = File.ReadAllBytes(gdlChangelog);
 
         foreach (var gdlFile in gdlFiles) {
-            var gdlFileBytes = GetFlatFileContents(gdlFile, true);
+            var gdlFileBytes = archiveHelper.GetFlatFileContents(gdlFile, true);
             var merger = new GameDataListMerger();
 
             var resultBytes = merger.Merge(gdlFileBytes, changelogBytes);
 
-            WriteFlatFileContents(gdlFile, resultBytes, true);
+            archiveHelper.WriteFlatFileContents(gdlFile, resultBytes, true);
 
             Trace.TraceInformation("Merged GDL changelog into {0}", gdlFile);
         }
@@ -269,14 +286,14 @@ public class SarcMerger {
     private void MergeShops() {
       
         
-        var merger = new ShopsMerger(this, shops.Select(l => l.ActorName).ToHashSet());
+        var merger = new ShopsMerger(archiveHelper, shops.Select(l => l.ActorName).ToHashSet());
         
         // This will be called if we ever need to request a shop file from the dump
         merger.GetEntryForShop = (actorName) => {
-            var dumpPath = Path.Combine(config!.GamePath!, "Pack", "Actor", $"{actorName}.pack.zs");
+            var dumpPath = Path.Combine(config.GamePath, "Pack", "Actor", $"{actorName}.pack.zs");
             var target = Path.Combine(outputPath, "Pack", "Actor", $"{actorName}.pack.zs");
 
-            File.Copy(dumpPath, target, true);
+            CopyHelper.CopyFile(dumpPath, target);
 
             return new ShopsMerger.ShopMergerEntry(actorName, target);
         };
@@ -305,7 +322,7 @@ public class SarcMerger {
 
             // Copy the mod's file to the output if we otherwise failed to copy the file from the dump
             if (!didCopy) {
-                File.Copy(filePath, targetFilePath, true);
+                CopyHelper.CopyFile(filePath, targetFilePath);
                 return;
             }
         }
@@ -314,17 +331,17 @@ public class SarcMerger {
         var sourceIsCompressed = filePath.EndsWith(".zs");
         var targetIsCompressed = filePath.EndsWith(".zs");
 
-        var sourceFileContents = GetFlatFileContents(filePath, sourceIsCompressed);
-        var targetFileContents = GetFlatFileContents(targetFilePath, targetIsCompressed);
+        var sourceFileContents = archiveHelper.GetFlatFileContents(filePath, sourceIsCompressed);
+        var targetFileContents = archiveHelper.GetFlatFileContents(targetFilePath, targetIsCompressed);
 
-        var fileExtension = Path.GetExtension(filePath).Substring(1).ToLower();
+        var fileExtension = Path.GetExtension(filePath.Replace(".zs", "")).Substring(1).ToLower();
         var handler = handlerManager.GetHandlerInstance(fileExtension);
 
         if (handler == null) {
-            Trace.TraceWarning("{0}: No handler for {1} - overwriting contents of {2} in {3}", modFolderName,
-                               fileExtension, Path.GetFileName(filePath), pathRelativeToBase);
+            Trace.TraceInformation("{0}: Wrote {1} in {2} by priority", modFolderName,
+                               Path.GetFileName(filePath), pathRelativeToBase);
             
-            File.Copy(filePath, targetFilePath, true);
+            CopyHelper.CopyFile(filePath, targetFilePath);
         } else {
             var relativeFilename = Path.Combine(pathRelativeToBase, Path.GetFileName(filePath));
 
@@ -336,7 +353,10 @@ public class SarcMerger {
                 new MergeFile(0, targetFileContents)
             });
 
-            WriteFlatFileContents(targetFilePath, result, targetIsCompressed);
+            archiveHelper.WriteFlatFileContents(targetFilePath, result, targetIsCompressed);
+
+            Trace.TraceInformation("{0}: Wrote changelog for {1} into {2}", modFolderName, Path.GetFileName(filePath), 
+                                   pathRelativeToBase);
         }
     }
 
@@ -344,11 +364,12 @@ public class SarcMerger {
         
         if (!Directory.Exists(modFolderPath))
             throw new Exception($"The input mod folder '{modFolderPath}' could not be found.");
-        
-        var filesInModFolder = Directory.GetFiles(modFolderPath, "*", SearchOption.AllDirectories);
 
-        foreach (var filePath in filesInModFolder.Where(file => SarcPackager.SupportedExtensions.Any(ext => file.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))) {
+        var filesInModFolder = Directory.GetFiles(modFolderPath, "*", SearchOption.AllDirectories)
+                                        .Where(file => SarcPackager.SupportedExtensions.Any(
+                                                   ext => file.EndsWith(ext, StringComparison.OrdinalIgnoreCase)));
 
+        Parallel.ForEach(filesInModFolder, filePath => {
             var baseRomfs = Path.Combine(modFolderPath, "romfs");
             var pathRelativeToBase = Path.GetRelativePath(baseRomfs, Path.GetDirectoryName(filePath)!);
             Trace.TraceInformation("{0}: Merging {1}", modFolderPath, filePath);
@@ -362,12 +383,12 @@ public class SarcMerger {
                 if (File.Exists(targetArchivePath))
                     File.Delete(targetArchivePath);
 
-                File.Copy(filePath, targetArchivePath, true);
+                CopyHelper.CopyFile(filePath, targetArchivePath);
             } catch (Exception) {
                 Trace.TraceError("Failed to merge {0}", filePath);
                 throw;
             }
-        }
+        });
         
     }
 
@@ -395,7 +416,7 @@ public class SarcMerger {
             
             // Copy the mod's package to the output if we otherwise failed to copy the file from the dump
             if (!didCopy) {
-                File.Copy(archivePath, targetArchivePath, true);
+                CopyHelper.CopyFile(archivePath, targetArchivePath);
                 return;
             }
         }
@@ -404,8 +425,8 @@ public class SarcMerger {
         var isCompressed = archivePath.EndsWith(".zs");
         var isPackFile = archivePath.Contains(".pack.");
 
-        Span<byte> sourceFileContents = GetFileContents(archivePath, isCompressed, isPackFile);
-        Span<byte> targetFileContents = GetFileContents(targetArchivePath, isCompressed, isPackFile);
+        Span<byte> sourceFileContents = archiveHelper.GetFileContents(archivePath, isCompressed, isPackFile);
+        Span<byte> targetFileContents = archiveHelper.GetFileContents(targetArchivePath, isCompressed, isPackFile);
 
         var sourceSarc = Sarc.FromBinary(sourceFileContents.ToArray());
         var targetSarc = Sarc.FromBinary(targetFileContents.ToArray());
@@ -431,8 +452,8 @@ public class SarcMerger {
                 var handler = handlerManager.GetHandlerInstance(fileExtension);
 
                 if (handler == null) {
-                    Trace.TraceWarning("{0}: No handler for {1} - overwriting contents of {2} in {3}", modFolderPath,
-                                       fileExtension, entry.Key, targetArchivePath);
+                    Trace.TraceInformation("{0}: Wrote {1} in {2} as-is", modFolderPath,
+                                       entry.Key, targetArchivePath);
                     targetSarc[entry.Key] = entry.Value;
                     continue;
                 }
@@ -443,106 +464,21 @@ public class SarcMerger {
                 });
 
                 targetSarc[entry.Key] = result.ToArray();
+
+                Trace.TraceInformation("{0}: Merged changelog {1} to {2}", modFolderPath, entry.Key, targetArchivePath);
             }
         }
 
-        WriteFileContents(targetArchivePath, targetSarc, isCompressed, isPackFile);
+        archiveHelper.WriteFileContents(targetArchivePath, targetSarc, isCompressed, isPackFile);
     }
-
-    internal void WriteFileContents(string archivePath, Sarc sarc, bool isCompressed, bool isPackFile) {
-        if (compression == null)
-            throw new Exception("Compression not loaded");
-
-        using var memoryStream = new MemoryStream();
-        sarc.Write(memoryStream);
-
-        if (isCompressed) {
-            var type = CompressionType.Common;
-
-            // Change compression type
-            if (isPackFile)
-                type = CompressionType.Pack;
-            else if (archivePath.Contains("bcett", StringComparison.OrdinalIgnoreCase))
-                type = CompressionType.Bcett;
-            
-            File.WriteAllBytes(archivePath,
-                               compression.Compress(memoryStream.ToArray(), type)
-                                          .ToArray());
-        } else {
-            File.WriteAllBytes(archivePath, memoryStream.ToArray());
-        }
-    }
-
-    internal Span<byte> GetFileContents(string archivePath, bool isCompressed, bool isPackFile) {
-        if (compression == null)
-            throw new Exception("Compression not loaded");
-        
-        Span<byte> sourceFileContents;
-        if (isCompressed) {
-            // Need to decompress the file first
-            var type = CompressionType.Common;
-
-            // Change compression type
-            if (isPackFile)
-                type = CompressionType.Pack;
-            else if (archivePath.Contains("bcett", StringComparison.OrdinalIgnoreCase))
-                type = CompressionType.Bcett;
-            
-            var compressedContents = File.ReadAllBytes(archivePath).AsSpan();
-            sourceFileContents = compression.Decompress(compressedContents, type);
-        } else {
-            sourceFileContents = File.ReadAllBytes(archivePath).AsSpan();
-        }
-
-        return sourceFileContents;
-    }
-
-    private Memory<byte> GetFlatFileContents(string filePath, bool isCompressed) {
-        if (compression == null)
-            throw new Exception("Compression not loaded");
-
-        Span<byte> sourceFileContents;
-        if (isCompressed) {
-            // Need to decompress the file first
-            var type = CompressionType.Common;
-
-            // Change compression type
-            if (filePath.Contains("bcett", StringComparison.OrdinalIgnoreCase))
-                type = CompressionType.Bcett;
-            
-            var compressedContents = File.ReadAllBytes(filePath).AsSpan();
-            sourceFileContents = compression.Decompress(compressedContents, type);
-        } else {
-            sourceFileContents = File.ReadAllBytes(filePath).AsSpan();
-        }
-
-        return new Memory<byte>(sourceFileContents.ToArray());
-    }
-
-    private void WriteFlatFileContents(string filePath, ReadOnlyMemory<byte> contents, bool isCompressed) {
-        if (compression == null)
-            throw new Exception("Compression not loaded");
-
-        if (isCompressed) {
-            var type = CompressionType.Common;
-
-            // Change compression type
-            if (filePath.Contains("bcett", StringComparison.OrdinalIgnoreCase))
-                type = CompressionType.Bcett;
-            
-            File.WriteAllBytes(filePath,
-                               compression.Compress(contents.ToArray(), type).ToArray());
-        } else {
-            File.WriteAllBytes(filePath, contents.ToArray());
-        }
-    }
+    
 
     private bool CopyOriginal(string archivePath, string pathRelativeToBase, string outputFile) {
-        var sourcePath = config!.GamePath!;
+        var sourcePath = config.GamePath;
         var originalFile = Path.Combine(sourcePath, pathRelativeToBase, Path.GetFileName(archivePath));
 
         if (File.Exists(originalFile)) {
-            File.Copy(originalFile, outputFile, true);
+            CopyHelper.CopyFile(originalFile, outputFile);
             return true;
         }
 

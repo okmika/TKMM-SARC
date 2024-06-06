@@ -180,7 +180,7 @@ internal class GameDataListMerger {
             
             WriteValueArray(change.DefaultValue, item["DefaultValue"]);
         } else if (table == "Int") {
-            item["DefaultValue"] = (int)change.Values[0].Value;
+            item["DefaultValue"] = (int)change.DefaultValue[0].Value;
         } else if (table == "IntArray") {
             if (change.Change == GameDataListChangeType.Add)
                 item["DefaultValue"] = new BymlArray();
@@ -194,6 +194,9 @@ internal class GameDataListMerger {
 
             WriteValueArray(change.DefaultValue, item["DefaultValue"]);
         } else if (table == "Struct") {
+            if (change.Change == GameDataListChangeType.Add)
+                item["DefaultValue"] = new BymlArray();
+            
             WriteStructArray(change.DefaultValue, item["DefaultValue"]);
         } else if (table == "UInt") {
             item["DefaultValue"] = (uint)change.DefaultValue[0].Value;
@@ -316,6 +319,8 @@ internal class GameDataListMerger {
             return new Byml(valueInt);
         else if (value is long valueLong)
             return new Byml(valueLong);
+        else if (value is bool valueBool)
+            return new Byml(valueBool);
         else
             throw new Exception("Unknown value type");
     }
@@ -673,6 +678,12 @@ internal class GameDataListMerger {
 
     private GameDataListValue GetValue(Byml value, GameDataListValueType valueType) {
         var outputValue = new GameDataListValue();
+        
+        // Needed to work around int64 node types that are represented as int32 instead
+        if (valueType == GameDataListValueType.Int64 && value.Type == BymlNodeType.Int)
+            value = (long)value.GetInt();
+        else if (valueType == GameDataListValueType.UInt64 && value.Type == BymlNodeType.UInt32)
+            value = (ulong)value.GetUInt32();
 
         outputValue.Value = valueType switch {
             GameDataListValueType.Boolean => value.GetBool(),

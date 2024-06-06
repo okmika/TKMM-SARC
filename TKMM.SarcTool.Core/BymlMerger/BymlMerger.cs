@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO.Hashing;
 using BymlLibrary;
 using BymlLibrary.Nodes.Containers;
@@ -11,7 +12,6 @@ internal partial class BymlHandler : ISarcFileHandler {
     public string[] Extensions => new[] {"byml", "byaml", "bgyml"};
     
     public ReadOnlyMemory<byte> Merge(string fileName, IList<MergeFile> files) {
-
         var orderedFiles = files.OrderBy(l => l.Priority).ToList();
 
         var baseFile = Byml.FromBinary(orderedFiles[0].Contents.ToArray());
@@ -60,7 +60,17 @@ internal partial class BymlHandler : ISarcFileHandler {
                         continue;
                     }
 
-                    baseNode[index] = modValue;
+                    if (baseNode[index].Type is BymlNodeType.Array)
+                        baseNode[index] = MergeArray(baseNode[index].GetArray(), modValue.GetArray());
+                    else if (baseNode[index].Type is BymlNodeType.HashMap32)
+                        baseNode[index] = MergeHashTable(baseNode[index].GetHashMap32(), modValue.GetHashMap32());
+                    else if (baseNode[index].Type is BymlNodeType.HashMap64)
+                        baseNode[index] = MergeHashTable(baseNode[index].GetHashMap64(), modValue.GetHashMap64());
+                    else if (baseNode[index].Type is BymlNodeType.Map)
+                        baseNode[index] = MergeMap(baseNode[index].GetMap(), modValue.GetMap());
+                    else
+                        baseNode[index] = modValue;
+                    
                 } else if (itemMap.TryGetValue("~DEL~", out var _)) {
                     var index = itemMap["~INDEX~"].GetInt();
 
@@ -86,6 +96,12 @@ internal partial class BymlHandler : ISarcFileHandler {
     private BymlHashMap32 MergeHashTable(BymlHashMap32 baseNode, BymlHashMap32 mergeNode) {
 
         foreach (var item in mergeNode) {
+            // Process key deletion
+            if (item.Value.Type == BymlNodeType.String && item.Value.GetString() == "~DEL~") {
+                baseNode.Remove(item.Key);
+                continue;
+            }
+            
             if (!baseNode.TryGetValue(item.Key, out var baseNodeItem)) {
                 baseNode.Add(item.Key, item.Value);
                 continue;
@@ -110,6 +126,12 @@ internal partial class BymlHandler : ISarcFileHandler {
     private BymlHashMap64 MergeHashTable(BymlHashMap64 baseNode, BymlHashMap64 mergeNode) {
 
         foreach (var item in mergeNode) {
+            // Process key deletion
+            if (item.Value.Type == BymlNodeType.String && item.Value.GetString() == "~DEL~") {
+                baseNode.Remove(item.Key);
+                continue;
+            }
+            
             if (!baseNode.TryGetValue(item.Key, out var baseNodeItem)) {
                 baseNode.Add(item.Key, item.Value);
                 continue;
@@ -135,8 +157,8 @@ internal partial class BymlHandler : ISarcFileHandler {
 
         foreach (var item in mergeNode) {
             // Process key deletion
-            if (item.Key.StartsWith("~DEL~") && baseNode.ContainsKey(item.Key.Substring(5))) {
-                baseNode.Remove(item.Key.Substring(5));
+            if (item.Value.Type == BymlNodeType.String && item.Value.GetString() == "~DEL~") {
+                baseNode.Remove(item.Key);
                 continue;
             }
             

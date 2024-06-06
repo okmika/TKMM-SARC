@@ -13,6 +13,8 @@ internal class ZsCompression {
     private Decompressor commonDecompressor = new();
     private Decompressor bcettDecompressor = new();
     private Decompressor packDecompressor = new();
+    
+    private object syncRoot = new object();
 
     public ZsCompression(string packFilePath) {
         var zsDic = File.ReadAllBytes(packFilePath);
@@ -30,25 +32,29 @@ internal class ZsCompression {
     }
 
     public Span<byte> Decompress(ReadOnlySpan<byte> compressed, CompressionType type) {
-        if (type == CompressionType.Common)
-            return commonDecompressor.Unwrap(compressed);
-        else if (type == CompressionType.Bcett)
-            return bcettDecompressor.Unwrap(compressed);
-        else if (type == CompressionType.Pack)
-            return packDecompressor.Unwrap(compressed);
+        lock (syncRoot) {
+            if (type == CompressionType.Common)
+                return commonDecompressor.Unwrap(compressed);
+            else if (type == CompressionType.Bcett)
+                return bcettDecompressor.Unwrap(compressed);
+            else if (type == CompressionType.Pack)
+                return packDecompressor.Unwrap(compressed);
 
-        throw new Exception("Invalid compression type");
+            throw new Exception("Invalid compression type");
+        }
     }
 
     public Span<byte> Compress(ReadOnlySpan<byte> data, CompressionType type) {
-        if (type == CompressionType.Common)
-            return commonCompressor.Wrap(data);
-        else if (type == CompressionType.Bcett)
-            return bcettCompressor.Wrap(data);
-        else if (type == CompressionType.Pack)
-            return packCompressor.Wrap(data);
+        lock (syncRoot) {
+            if (type == CompressionType.Common)
+                return commonCompressor.Wrap(data);
+            else if (type == CompressionType.Bcett)
+                return bcettCompressor.Wrap(data);
+            else if (type == CompressionType.Pack)
+                return packCompressor.Wrap(data);
 
-        throw new Exception("Invalid compression type");
+            throw new Exception("Invalid compression type");
+        }
     }
 }
 

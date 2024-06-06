@@ -7,15 +7,15 @@ namespace TKMM.SarcTool.Core;
 
 internal class ShopsMerger {
 
-    private readonly SarcMerger merger;
+    private readonly ArchiveHelper archiveHelper;
     private readonly Queue<ShopMergerEntry> shops = new Queue<ShopMergerEntry>();
     private readonly HashSet<string> allShops;
     private readonly Stack<Byml> overflowEntries = new Stack<Byml>();
     
     public Func<string, ShopMergerEntry>? GetEntryForShop { get; set; }
 
-    public ShopsMerger(SarcMerger merger, HashSet<string> allShops) {
-        this.merger = merger;
+    public ShopsMerger(ArchiveHelper archiveHelper, HashSet<string> allShops) {
+        this.archiveHelper = archiveHelper;
         this.allShops = allShops;
     }
 
@@ -32,7 +32,7 @@ internal class ShopsMerger {
                 allShops.Remove(shop.Actor);
 
             Trace.TraceInformation("Processing shop for {0}", shop.Actor);
-            var sarcBin = merger.GetFileContents(shop.ArchivePath, true, true).ToArray();
+            var sarcBin = archiveHelper.GetFileContents(shop.ArchivePath, true, true).ToArray();
             var sarc = Sarc.FromBinary(sarcBin);
             var key = $"Component/ShopParam/{shop.Actor}.game__component__ShopParam.bgyml";
 
@@ -59,7 +59,7 @@ internal class ShopsMerger {
                 Trace.TraceInformation("{0} shop overflowed {1}", shop.Actor, goodsToOverflow.Count);
                 
                 sarc[key] = shopsByml.ToBinary(Endianness.Little);
-                merger.WriteFileContents(shop.ArchivePath, sarc, true, true);
+                archiveHelper.WriteFileContents(shop.ArchivePath, sarc, true, true);
             }
             
             var wroteCount = 0;
@@ -86,7 +86,7 @@ internal class ShopsMerger {
 
             if (wroteCount > 0) {
                 sarc[key] = shopsByml.ToBinary(Endianness.Little);
-                merger.WriteFileContents(shop.ArchivePath, sarc, true, true);
+                archiveHelper.WriteFileContents(shop.ArchivePath, sarc, true, true);
             }
         }
         
