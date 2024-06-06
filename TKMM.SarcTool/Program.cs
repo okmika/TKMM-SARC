@@ -113,11 +113,11 @@ public static class Program {
         packageCommand.AddOption(packageCommandChecksumOption);
         packageCommand.AddOption(packageCommandVersionsOption);
 
-        packageCommand.SetHandler((outputPath, modPath, configPath, checksumPath, versions) =>
-                                      RunPackage(outputPath, modPath, configPath, checksumPath, versions),
+        packageCommand.SetHandler((outputPath, modPath, configPath, checksumPath, versions, verbose) =>
+                                      RunPackage(outputPath, modPath, configPath, checksumPath, versions, verbose),
                                   packageCommandOutputOption,
                                   packageCommandModOption, packageCommandConfigOption, packageCommandChecksumOption,
-                                  packageCommandVersionsOption);
+                                  packageCommandVersionsOption, verboseOption);
     }
 
     private static void MakeMergeCommand(Command mergeCommand, Option<bool> verboseOption) {
@@ -146,10 +146,10 @@ public static class Program {
         mergeCommand.AddOption(mergeCommandOutputOption);
         mergeCommand.AddOption(mergeConfigOption);
 
-        mergeCommand.SetHandler((modsList, basePath, outputPath, configPath) =>
-                                    RunMerge(modsList, basePath, outputPath, configPath),
+        mergeCommand.SetHandler((modsList, basePath, outputPath, configPath, verbose) =>
+                                    RunMerge(modsList, basePath, outputPath, configPath, verbose),
                                 mergeCommandModsOption, mergeCommandBaseOption, mergeCommandOutputOption,
-                                mergeConfigOption);
+                                mergeConfigOption, verboseOption);
     }
 
    
@@ -162,10 +162,17 @@ public static class Program {
         }
     }
 
-    private static void RunMerge(IEnumerable<string> modsList, string basePath, string outputPath, string? configPath) {
+    private static void RunMerge(IEnumerable<string> modsList, string basePath, string outputPath, string? configPath, bool verbose) {
         try {
+            var timer = new Stopwatch();
+            timer.Start();
+
             var merger = new SarcMerger(modsList.Select(x => Path.Combine(basePath, x)), outputPath, configPath);
+            merger.Verbose = verbose;
             merger.Merge();
+
+            timer.Stop();
+            AnsiConsole.WriteLine($"Command completed in {timer.Elapsed}");
         } catch (Exception exc) {
             AnsiConsole.WriteException(exc, ExceptionFormats.ShortenPaths | ExceptionFormats.ShortenTypes);
         }
@@ -192,11 +199,18 @@ public static class Program {
         }
     }
 
-    private static void RunPackage(string outputPath, string modPath, string? configPath, string? checksumPath, int[] versions) {
+    private static void RunPackage(string outputPath, string modPath, string? configPath, string? checksumPath, int[] versions, bool verbose) {
         
         try {
+            var timer = new Stopwatch();
+            timer.Start();
+            
             var packager = new SarcPackager(outputPath, modPath, configPath, checksumPath, versions);
+            packager.Verbose = verbose;
             packager.Package();
+
+            timer.Stop();
+            AnsiConsole.WriteLine($"Command completed in {timer.Elapsed}");
         } catch (Exception exc) {
             AnsiConsole.WriteException(exc, ExceptionFormats.ShortenPaths | ExceptionFormats.ShortenTypes);
         }

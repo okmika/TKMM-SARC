@@ -15,12 +15,9 @@ namespace TKMM.SarcTool.Core;
 public class SarcAssembler {
     
     private readonly Totk config;
-    private readonly ZsCompression compression;
     private readonly ArchiveHelper archiveHelper;
     private readonly ArchiveCache archiveCache;
-
     private readonly string modPath;
-    private readonly string configPath;
 
     /// <summary>
     /// Create an instance of the <see cref="SarcAssembler"/> class.
@@ -62,12 +59,11 @@ public class SarcAssembler {
             throw new Exception("Compression package not found: {this.config.GamePath}");
         }
 
-        compression = new ZsCompression(compressionPath);
+        var compression = new ZsCompression(compressionPath);
         archiveHelper = new ArchiveHelper(compression);
         archiveCache = new ArchiveCache(configPath, compression);
 
         this.modPath = modPath;
-        this.configPath = configPath;
     }
 
     /// <summary>
@@ -164,5 +160,6 @@ public class SarcAssembler {
         CopyHelper.CopyFile(vanillaPath, destination);
         return true;
     }
+    
     
 }

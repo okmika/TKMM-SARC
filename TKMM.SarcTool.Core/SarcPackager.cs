@@ -19,6 +19,11 @@ public class SarcPackager {
     private readonly string outputPath, modRomfsPath;
     private readonly ArchiveCache archiveCache;
     private readonly ArchiveHelper archiveHelper;
+
+    /// <summary>
+    /// Emit verbose trace events. Useful for debugging failures but may slow down operations. 
+    /// </summary>
+    public bool Verbose { get; set; } = false;
     
     internal static readonly string[] SupportedExtensions = new[] {
         ".bfarc", ".bkres", ".blarc", ".genvb", ".pack", ".ta",
@@ -117,10 +122,13 @@ public class SarcPackager {
     
 
     private void InternalMakePackage() {
+        Trace.TraceInformation("Packaging files in {0}", modRomfsPath);
+        
         var filesInFolder = Directory.GetFiles(modRomfsPath, "*", SearchOption.AllDirectories)
                                      .Where(file => SupportedExtensions.Any(
                                                 ext => file.EndsWith(ext, StringComparison.OrdinalIgnoreCase)));
 
+        Trace.TraceInformation("Output folder is {0}", outputPath);
 
         Parallel.ForEach(filesInFolder, filePath => {
             var pathRelativeToBase = Path.GetRelativePath(modRomfsPath, Path.GetDirectoryName(filePath)!);
@@ -134,7 +142,7 @@ public class SarcPackager {
                 var result = HandleArchive(filePath, pathRelativeToBase);
 
                 if (result.Length == 0) {
-                    Trace.TraceInformation("Omitting {0}: Same as vanilla", filePath);
+                    TracePrint("Omitting {0}: Same as vanilla", filePath);
                     return;
                 }
 
@@ -146,7 +154,7 @@ public class SarcPackager {
 
                 File.WriteAllBytes(outputFilePath, result.ToArray());
 
-                Trace.TraceInformation("Packaged {0}", outputFilePath);
+                TracePrint("Packaged {0}", outputFilePath);
             } catch (Exception exc) {
                 Trace.TraceError("Failed to package {0} - Error: {1} - skipping", filePath, exc.Message);
 
@@ -219,7 +227,7 @@ public class SarcPackager {
                 var handler = handlerManager.GetHandlerInstance(fileExtension);
 
                 if (handler == null) {
-                    Trace.TraceInformation("Wrote {0} to {1} as-is", entry.Key, archivePath);
+                    TracePrint("Wrote {0} to {1} as-is", entry.Key, archivePath);
                     sarc[entry.Key] = entry.Value;
                     continue;
                 }
@@ -235,7 +243,7 @@ public class SarcPackager {
 
                 sarc[entry.Key] = result.ToArray();
 
-                Trace.TraceInformation("Wrote changelog for {0} in {1}", entry.Key, archivePath);
+                TracePrint("Wrote changelog for {0} in {1}", entry.Key, archivePath);
             }
         }
         
@@ -386,7 +394,7 @@ public class SarcPackager {
         var handler = handlerManager.GetHandlerInstance(fileExtension);
 
         if (handler == null) {
-            Trace.TraceInformation("Wrote {0} as-is", filePath);
+            TracePrint("Wrote {0} as-is", filePath);
             
             CopyHelper.CopyFile(filePath, targetFilePath);
         } else {
@@ -402,7 +410,7 @@ public class SarcPackager {
             
             archiveHelper.WriteFlatFileContents(targetFilePath, result, isCompressed);
 
-            Trace.TraceInformation("Wrote changelog for {0}", filePath);
+            TracePrint("Wrote changelog for {0}", filePath);
         }
     }
     
@@ -469,6 +477,11 @@ public class SarcPackager {
         }
 
         return Sarc.FromBinary(fileContents.ToArray());
+    }
+
+    private void TracePrint(string message, params object?[]? elements) {
+        if (Verbose)
+            Trace.TraceInformation(message, elements);
     }
 
 }

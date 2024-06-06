@@ -63,8 +63,7 @@ internal partial class BymlHandler {
                 });
             } else {
                 // Edits
-                var identical = GetHash(mergeNode[i].ToBinary(Endianness.Little)) == GetHash(baseNode[i].ToBinary(
-                    Endianness.Little));
+                var identical = Byml.ValueEqualityComparer.Default.Equals(mergeNode[i], baseNode[i]);
 
                 Byml modNode;
                 if (!identical && arrayContentsType == BymlNodeType.Map) {
@@ -117,10 +116,9 @@ internal partial class BymlHandler {
                 continue;
             }
 
-            var baseHash = GetHash(baseNodeItem.ToBinary(Endianness.Little));
-            var mergeHash = GetHash(item.Value.ToBinary(Endianness.Little));
+            var identical = Byml.ValueEqualityComparer.Default.Equals(baseNodeItem, item.Value);
 
-            if (baseHash == mergeHash) {
+            if (identical) {
                 baseNode.Remove(item.Key);
                 continue;
             }
@@ -165,10 +163,9 @@ internal partial class BymlHandler {
                 continue;
             }
 
-            var baseHash = GetHash(baseNodeItem.ToBinary(Endianness.Little));
-            var mergeHash = GetHash(item.Value.ToBinary(Endianness.Little));
+            var identical = Byml.ValueEqualityComparer.Default.Equals(baseNodeItem, item.Value);
 
-            if (baseHash == mergeHash) {
+            if (identical) {
                 baseNode.Remove(item.Key);
                 continue;
             }
@@ -213,10 +210,9 @@ internal partial class BymlHandler {
                 continue;
             }
 
-            var baseHash = GetHash(baseNodeItem.ToBinary(Endianness.Little));
-            var mergeHash = GetHash(item.Value.ToBinary(Endianness.Little));
+            var identical = Byml.ValueEqualityComparer.Default.Equals(baseNodeItem, item.Value);
 
-            if (baseHash == mergeHash) {
+            if (identical) {
                 baseNode.Remove(item.Key);
                 continue;
             }

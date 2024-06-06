@@ -12,13 +12,17 @@ namespace TKMM.SarcTool.Core;
 /// </summary>
 public class SarcMerger {
     private readonly Totk config;
-    private readonly ZsCompression compression;
     private readonly List<ShopsJsonEntry> shops;
 
     private readonly string outputPath;
     private readonly string[] modFolderPaths;
     private readonly HandlerManager handlerManager;
     private readonly ArchiveHelper archiveHelper;
+
+    /// <summary>
+    /// Emit verbose trace events. Useful for debugging failures but may slow down operations. 
+    /// </summary>
+    public bool Verbose { get; set; } = false;
 
     /// <summary>
     /// Creates a new instance of the <see cref="SarcMerger"/> class.
@@ -92,7 +96,8 @@ public class SarcMerger {
             throw new Exception($"{shopsPath} not found");
 
         this.shops = ShopsJsonEntry.Load(shopsPath);
-        this.compression = new ZsCompression(compressionPath);
+        
+        var compression = new ZsCompression(compressionPath);
         this.archiveHelper = new ArchiveHelper(compression);
 
     }
@@ -169,7 +174,7 @@ public class SarcMerger {
 
     private void InternalFlatMerge() {
         foreach (var modFolder in modFolderPaths) {
-            Trace.TraceInformation("Processing {0}", modFolder);
+            TracePrint("Processing {0}", modFolder);
             
             MergeFilesInMod(modFolder);
             
@@ -181,6 +186,8 @@ public class SarcMerger {
     private void InternalMergeArchives() {
 
         CleanPackagesInTarget();
+
+        Trace.TraceInformation("Output path is {0}", outputPath);
 
         foreach (var modFolderName in modFolderPaths) {
             Trace.TraceInformation("Processing {0}", modFolderName);
@@ -338,7 +345,7 @@ public class SarcMerger {
         var handler = handlerManager.GetHandlerInstance(fileExtension);
 
         if (handler == null) {
-            Trace.TraceInformation("{0}: Wrote {1} in {2} by priority", modFolderName,
+            TracePrint("{0}: Wrote {1} in {2} by priority", modFolderName,
                                Path.GetFileName(filePath), pathRelativeToBase);
             
             CopyHelper.CopyFile(filePath, targetFilePath);
@@ -355,7 +362,7 @@ public class SarcMerger {
 
             archiveHelper.WriteFlatFileContents(targetFilePath, result, targetIsCompressed);
 
-            Trace.TraceInformation("{0}: Wrote changelog for {1} into {2}", modFolderName, Path.GetFileName(filePath), 
+            TracePrint("{0}: Wrote changelog for {1} into {2}", modFolderName, Path.GetFileName(filePath), 
                                    pathRelativeToBase);
         }
     }
@@ -372,7 +379,7 @@ public class SarcMerger {
         Parallel.ForEach(filesInModFolder, filePath => {
             var baseRomfs = Path.Combine(modFolderPath, "romfs");
             var pathRelativeToBase = Path.GetRelativePath(baseRomfs, Path.GetDirectoryName(filePath)!);
-            Trace.TraceInformation("{0}: Merging {1}", modFolderPath, filePath);
+            TracePrint("{0}: Merging {1}", modFolderPath, filePath);
 
             try {
                 MergeArchive(modFolderPath, filePath, pathRelativeToBase);
@@ -452,7 +459,7 @@ public class SarcMerger {
                 var handler = handlerManager.GetHandlerInstance(fileExtension);
 
                 if (handler == null) {
-                    Trace.TraceInformation("{0}: Wrote {1} in {2} as-is", modFolderPath,
+                    TracePrint("{0}: Wrote {1} in {2} as-is", modFolderPath,
                                        entry.Key, targetArchivePath);
                     targetSarc[entry.Key] = entry.Value;
                     continue;
@@ -465,7 +472,7 @@ public class SarcMerger {
 
                 targetSarc[entry.Key] = result.ToArray();
 
-                Trace.TraceInformation("{0}: Merged changelog {1} to {2}", modFolderPath, entry.Key, targetArchivePath);
+                TracePrint("{0}: Merged changelog {1} to {2}", modFolderPath, entry.Key, targetArchivePath);
             }
         }
 
@@ -483,6 +490,11 @@ public class SarcMerger {
         }
 
         return false;
+    }
+
+    private void TracePrint(string message, params object?[]? elements) {
+        if (Verbose)
+            Trace.TraceInformation(message, elements);
     }
 
     
