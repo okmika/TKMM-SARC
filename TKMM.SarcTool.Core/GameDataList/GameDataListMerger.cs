@@ -56,6 +56,9 @@ internal class GameDataListMerger {
             WriteChange(change, change.Table, table, tableDict);
         }
 
+        // SaveData metadata is last
+        WriteSaveData(output);
+        
         return output.ToBinary(Endianness.Little);
     }
 
@@ -78,6 +81,189 @@ internal class GameDataListMerger {
         var serializedChanges = SerializeChangelog(changes);
         return serializedChanges;
 
+    }
+
+    private void WriteSaveData(Byml root) {
+        var tables = root.GetMap()["Data"]
+                         .GetMap();
+
+        var metadata = root.GetMap()["MetaData"]
+                           .GetMap();
+
+        var validTables = new[] {
+            "Bool",
+            "BoolArray",
+            "Int",
+            "IntArray",
+            "Float",
+            "FloatArray",
+            "Enum",
+            "EnumArray",
+            "Vector2",
+            "Vector2Array",
+            "Vector3",
+            "Vector3Array",
+            "String16",
+            "String16Array",
+            "String32",
+            "String32Array",
+            "String64",
+            "String64Array",
+            "Binary",
+            "BinaryArray",
+            "UInt",
+            "UIntArray",
+            "Int64",
+            "Int64Array",
+            "UInt64",
+            "UInt64Array",
+            "WString16",
+            "WString16Array",
+            "WString32",
+            "WString32Array",
+            "WString64",
+            "WString64Array",
+            "Bool64bitKey"
+        };
+
+        var sizes = new List<int>();
+        var offsets = new List<int>();
+
+        for (int i = 0; i < 7; i++) {
+            var result = SaveDataCalculateSizes(i, tables, metadata, validTables);
+            sizes.Add(result.size);
+            offsets.Add(result.offset);
+        }
+
+        int size = 0x20, offset = 0x20;
+
+        foreach (var tableName in validTables) {
+            size += 8;
+            offset += 8;
+
+            if (tableName == "Bool64bitKey") {
+                size += 8;
+                offset += 8;
+            }
+
+            var hasKeys = false;
+
+            if (tables.TryGetValue(tableName, out var table)) {
+                foreach (var entry in table.GetArray()) {
+                    
+                    if (tableName == "Bool64bitKey")
+                        hasKeys = true;
+                    else
+                        offset += 8;
+
+                    size += SaveDataGetSize(tableName, entry);
+                }
+
+                if (hasKeys)
+                    size += 8;
+            }
+        }
+        
+        // Write final values
+        metadata["AllDataSaveOffset"] = offset;
+        metadata["AllDataSaveSize"] = size;
+        metadata["SaveDataOffsetPos"] = new BymlArray(offsets.Select(l => new Byml(l)));
+        metadata["SaveDataSize"] = new BymlArray(sizes.Select(l => new Byml(l)));
+
+    }
+
+    private (int size, int offset) SaveDataCalculateSizes(int index, BymlMap tables, BymlMap metaData, string[] validTables) {
+        if (!metaData.TryGetValue("SaveDirectory", out var saveDirs))
+            return(0, 0);
+            
+        if (saveDirs.GetArray()[index].GetString() == "")
+            return (0, 0);
+
+        int size = 0x20, offset = 0x20;
+
+        foreach (var tableName in validTables) {
+            size += 8;
+            offset += 8;
+
+            if (tableName == "Bool64bitKey") {
+                size += 8;
+                offset += 8;
+            }
+
+            var hasKeys = false;
+
+            if (tables.TryGetValue(tableName, out var table)) {
+                foreach (var entry in table.GetArray()) {
+                    if (entry.Type is BymlNodeType.Map && entry.GetMap().TryGetValue("SaveFileIndex", out var saveFileIndex)) {
+                        if (saveFileIndex.GetInt() == index) {
+                            if (tableName == "Bool64bitKey")
+                                hasKeys = true;
+                            else
+                                offset += 8;
+
+                            size += SaveDataGetSize(tableName, entry);
+                        }
+                    }
+                }
+
+                if (hasKeys)
+                    size += 8;
+            }
+        }
+
+        return (size, offset);
+    }
+
+    private int SaveDataGetSize(string tableName, Byml node) {
+        var size = 8;
+        var count = 1u;
+        
+        if (tableName.Contains("Array")) {
+            size += 4;
+            if (node.Type is BymlNodeType.Map) {
+                if (node.GetMap().TryGetValue("ArraySize", out var arraySize)) {
+                    count = arraySize.GetUInt32();
+                } else if (node.GetMap().TryGetValue("Size", out var plainSize)) {
+                    count = plainSize.GetUInt32();
+                } else if (node.GetMap().TryGetValue("DefaultValue", out var defaultValue) && defaultValue.Type is BymlNodeType.Array) {
+                    count = (uint)defaultValue.GetArray().Count();
+                } else {
+                    throw new Exception("Couldn't determine array size");
+                }
+            }
+        }
+
+        if (tableName == "BoolArray") {
+            var div = Math.Ceiling(count / 8d);
+            size += ((int)Math.Ceiling((div < 4 ? 4 : div) / 4)) * 4;
+        } else if (tableName is "IntArray" or "FloatArray" or "UIntArray" or "EnumArray") {
+            size += (int)count * 4;
+        } else if (tableName.Contains("Vector2")) {
+            size += (int)count * 8;
+        } else if (tableName.Contains("Vector3")) {
+            size += (int)count * 12;
+        } else if (tableName.Contains("WString16")) {
+            size += (int)count * 32;
+        } else if (tableName.Contains("WString32")) {
+            size += (int)count * 64;
+        } else if (tableName.Contains("WString64")) {
+            size += (int)count * 128;
+        } else if (tableName.Contains("String16")) {
+            size += (int)count * 16;
+        } else if (tableName.Contains("String32")) {
+            size += (int)count * 32;
+        } else if (tableName.Contains("String64")) {
+            size += (int)count * 64;
+        } else if (tableName.Contains("Int64")) {
+            size += (int)count * 8;
+        } else if (tableName.Contains("Binary")) {
+            size += (int)count * 4;
+
+            if (node.GetMap().TryGetValue("DefaultValue", out var defaultValue))
+                size += (int)(count * defaultValue.GetUInt32());
+        } 
+
+        return size;
     }
 
     private void WriteChange(GameDataListChange change, string tableName, BymlArray table, Dictionary<ulong, BymlMap> tableDict) {
