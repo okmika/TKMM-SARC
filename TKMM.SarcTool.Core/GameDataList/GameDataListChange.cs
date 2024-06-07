@@ -4,12 +4,19 @@ using System.Text;
 
 namespace TKMM.SarcTool.Core;
 
+// **************
+// Format version history
+//   1:  Initial version
+//   2:  Table names are now written as bytes rather than strings
+// **************
+
 internal class GameDataListReader : IDisposable, IEnumerable<GameDataListChange> {
 
     private readonly Stream inputStream;
     private readonly BinaryReader reader;
     private ushort maxRecords;
     private ushort recordsRead;
+    private int version = 0;
 
     public GameDataListReader(Stream inputStream) {
         this.inputStream = inputStream;
@@ -22,7 +29,11 @@ internal class GameDataListReader : IDisposable, IEnumerable<GameDataListChange>
         var item = new GameDataListChange();
         
         item.Change = (GameDataListChangeType)reader.ReadByte();
-        item.Table = reader.ReadString();
+
+        if (version == 1)
+            item.Table = reader.ReadString();
+        else
+            item.Table = GetTableName((GameDataListTable)reader.ReadByte());
 
         if (item.Table == "Bool64bitKey")
             item.Hash64 = reader.ReadUInt64();
@@ -53,6 +64,10 @@ internal class GameDataListReader : IDisposable, IEnumerable<GameDataListChange>
 
         recordsRead++;
         return item;
+    }
+
+    private string GetTableName(GameDataListTable table) {
+        return table.ToString();
     }
 
     private GameDataListValue[] ReadValues(string table) {
@@ -142,13 +157,14 @@ internal class GameDataListReader : IDisposable, IEnumerable<GameDataListChange>
 
     private void ReadHeader() {
         var magic = reader.ReadChars(5);
-        var version = reader.ReadByte();
+        
+        version = reader.ReadByte();
         maxRecords = reader.ReadUInt16();
 
         if (new string(magic) != "GDLCL")
             throw new InvalidDataException("Invalid GDL change log");
 
-        if (version != 1)
+        if (version < 1 || version > 2 )
             throw new InvalidDataException($"GDL change log version {version} not supported");
     }
     
@@ -183,13 +199,13 @@ internal class GameDataListWriter : IDisposable {
 
     private void WriteHeader() {
         writer.Write("GDLCL".ToCharArray());
-        writer.Write((byte)1);
+        writer.Write((byte)2);
         writer.Write((ushort)0);            // Byte 6 = this will be the number of changes
     }
 
     public void Write(GameDataListChange data) {
         writer.Write((byte)data.Change);
-        writer.Write(data.Table);
+        writer.Write((byte)Enum.Parse<GameDataListTable>(data.Table));
 
         if (data.Hash32 != 0)
             writer.Write((ulong)data.Hash32);
@@ -413,4 +429,41 @@ internal enum GameDataListValueType : byte {
     Int64,
     UInt64,
     Float
+}
+
+internal enum GameDataListTable : byte {
+    Bool,
+    BoolArray,
+    Int,
+    IntArray,
+    Float,
+    FloatArray,
+    Enum,
+    EnumArray,
+    Vector2,
+    Vector2Array,
+    Vector3,
+    Vector3Array,
+    String16,
+    String16Array,
+    String32,
+    String32Array,
+    String64,
+    String64Array,
+    Binary,
+    BinaryArray,
+    UInt,
+    UIntArray,
+    Int64,
+    Int64Array,
+    UInt64,
+    UInt64Array,
+    WString16,
+    WString16Array,
+    WString32,
+    WString32Array,
+    WString64,
+    WString64Array,
+    Bool64bitKey,
+    Struct
 }
