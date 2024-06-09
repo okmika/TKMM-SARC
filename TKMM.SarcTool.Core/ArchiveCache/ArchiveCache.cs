@@ -58,7 +58,8 @@ internal class ArchiveCache {
     private void CreateArchiveCache(string archiveCachePath) {
 
         var supportedExtensions = new[] {
-            ".pack.zs", ".pack"
+            ".bfarc", ".bkres", ".blarc", ".genvb", ".pack", ".ta",
+            ".bfarc.zs", ".bkres.zs", ".blarc.zs", ".genvb.zs", ".pack.zs", ".ta.zs"
         };
 
         Trace.TraceInformation("Creating archive cache (this may take a bit)");
@@ -72,7 +73,7 @@ internal class ArchiveCache {
             var relativeArchivePath = archiveHelper.GetRelativePath(file, config.GamePath);
 
             try {
-                var archiveContents = archiveHelper.GetFileContents(file, isCompressed, true);
+                var archiveContents = archiveHelper.GetFileContents(file, isCompressed, out _);
                 var sarc = Sarc.FromBinary(archiveContents.ToArray());
 
                 foreach (var key in sarc.Keys)
