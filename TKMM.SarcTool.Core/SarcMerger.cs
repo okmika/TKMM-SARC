@@ -289,7 +289,7 @@ public class SarcMerger {
     private void MergeShops() {
       
         
-        var merger = new ShopsMerger(archiveHelper, shops.Select(l => l.ActorName).ToHashSet());
+        var merger = new ShopsMerger(archiveHelper, shops.Select(l => l.ActorName).ToHashSet(), Verbose);
         
         // This will be called if we ever need to request a shop file from the dump
         merger.GetEntryForShop = (actorName) => {
