@@ -22,7 +22,7 @@ public class SarcAssembler {
     /// <summary>
     /// Create an instance of the <see cref="SarcAssembler"/> class.
     /// </summary>
-    /// <param name="modPath">The full path to the mod to perform assembly on. This folder should contain the "romfs" folder.</param>
+    /// <param name="modPath">The full path to the mod to perform assembly on. This folder should be the "romfs" folder of the mod.</param>
     /// <param name="configPath">
     ///     The path to the location of the "config.json" file in standard NX Toolbox format, or
     ///     null to use the default location in local app data.
@@ -35,7 +35,7 @@ public class SarcAssembler {
     ///     dictionary is missing.
     /// </exception>
     public SarcAssembler(string modPath, string? configPath = null) {
-        if (!modPath.Contains($"{Path.DirectorySeparatorChar}romfs"))
+        if (!modPath.EndsWith($"{Path.DirectorySeparatorChar}romfs"))
             throw new ArgumentException("Path must be to the \"romfs\" folder of the mod", nameof(modPath));
         
         ArgumentNullException.ThrowIfNull(modPath);

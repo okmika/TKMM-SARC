@@ -29,7 +29,7 @@ public class SarcMerger {
     /// </summary>
     /// <param name="modFolderPaths">
     ///     A list full paths to the mods to merge, in the order of lowest to highest priority. Each of these
-    ///     folders should contain the "romfs" folder.
+    ///     folders should be the path to the "romfs" folder of the mod.
     /// </param>
     /// <param name="outputPath">The full path to the location of the folder in which to place the final merged files.</param>
     /// <param name="configPath">
@@ -55,14 +55,11 @@ public class SarcMerger {
 
         this.modFolderPaths = modFolderPaths.ToArray();
 
+        // Verify that each mod folder has a romfs
         foreach (var folder in this.modFolderPaths) {
-            if (folder.Contains($"{Path.DirectorySeparatorChar}romfs"))
-                throw new ArgumentException($"{folder} cannot contain \"romfs\" - use the outer folder",
+            if (!folder.EndsWith($"{Path.DirectorySeparatorChar}romfs"))
+                throw new ArgumentException($"{folder} must be the \"romfs\" for the mod",
                                             nameof(modFolderPaths));
-            
-            var romfsPath = Path.Combine(folder, "romfs");
-            if (!Directory.Exists(romfsPath))
-                throw new ArgumentException($"{romfsPath} does not exist", nameof(modFolderPaths));
         }
 
         this.outputPath = outputPath ?? throw new ArgumentNullException(nameof(outputPath));
@@ -227,9 +224,8 @@ public class SarcMerger {
 
             if (prefixExclusions.Any(l => Path.GetFileName(filePath).StartsWith(l)))
                 return;
-
-            var baseRomfs = Path.Combine(modFolderPath, "romfs");
-            var pathRelativeToBase = Path.GetRelativePath(baseRomfs, Path.GetDirectoryName(filePath)!);
+            
+            var pathRelativeToBase = Path.GetRelativePath(modFolderPath, Path.GetDirectoryName(filePath)!);
 
             try {
                 MergeFile(filePath, modFolderPath, pathRelativeToBase);
@@ -242,7 +238,7 @@ public class SarcMerger {
     }
 
     private void MergeGameDataList(string modPath) {
-        var gdlChangelog = Path.Combine(modPath, "romfs", "GameData", "GameDataList.gdlchangelog");
+        var gdlChangelog = Path.Combine(modPath, "GameData", "GameDataList.gdlchangelog");
 
         if (!File.Exists(gdlChangelog))
             return;
@@ -377,8 +373,7 @@ public class SarcMerger {
                                                    ext => file.EndsWith(ext, StringComparison.OrdinalIgnoreCase)));
 
         Parallel.ForEach(filesInModFolder, filePath => {
-            var baseRomfs = Path.Combine(modFolderPath, "romfs");
-            var pathRelativeToBase = Path.GetRelativePath(baseRomfs, Path.GetDirectoryName(filePath)!);
+            var pathRelativeToBase = Path.GetRelativePath(modFolderPath, Path.GetDirectoryName(filePath)!);
             TracePrint("{0}: Merging {1}", modFolderPath, filePath);
 
             try {
