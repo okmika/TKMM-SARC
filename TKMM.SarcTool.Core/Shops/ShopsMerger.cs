@@ -11,12 +11,15 @@ internal class ShopsMerger {
     private readonly Queue<ShopMergerEntry> shops = new Queue<ShopMergerEntry>();
     private readonly HashSet<string> allShops;
     private readonly Stack<Byml> overflowEntries = new Stack<Byml>();
+
+    private bool verbose = false;
     
     public Func<string, ShopMergerEntry>? GetEntryForShop { get; set; }
 
-    public ShopsMerger(ArchiveHelper archiveHelper, HashSet<string> allShops) {
+    public ShopsMerger(ArchiveHelper archiveHelper, HashSet<string> allShops, bool verbose = false) {
         this.archiveHelper = archiveHelper;
         this.allShops = allShops;
+        this.verbose = verbose;
     }
 
     public void Add(string actor, string archivePath) {
@@ -31,13 +34,17 @@ internal class ShopsMerger {
             if (allShops.Contains(shop.Actor))
                 allShops.Remove(shop.Actor);
 
-            Trace.TraceInformation("Processing shop for {0}", shop.Actor);
-            var sarcBin = archiveHelper.GetFileContents(shop.ArchivePath, true, true).ToArray();
+            if (verbose)
+                Trace.TraceInformation("Processing shop for {0}", shop.Actor);
+            
+            var sarcBin = archiveHelper.GetFileContents(shop.ArchivePath, true, out var dictionaryId).ToArray();
             var sarc = Sarc.FromBinary(sarcBin);
             var key = $"Component/ShopParam/{shop.Actor}.game__component__ShopParam.bgyml";
 
             if (!sarc.ContainsKey(key)) {
-                Trace.TraceWarning("{0} does not contain shop param bgyml- skipping", shop.ArchivePath);
+                if (verbose)
+                    Trace.TraceWarning("{0} does not contain shop param bgyml- skipping", shop.ArchivePath);
+                
                 continue;
             }
 
@@ -59,7 +66,7 @@ internal class ShopsMerger {
                 Trace.TraceInformation("{0} shop overflowed {1}", shop.Actor, goodsToOverflow.Count);
                 
                 sarc[key] = shopsByml.ToBinary(Endianness.Little);
-                archiveHelper.WriteFileContents(shop.ArchivePath, sarc, true, true);
+                archiveHelper.WriteFileContents(shop.ArchivePath, sarc, true, dictionaryId);
             }
             
             var wroteCount = 0;
@@ -86,7 +93,7 @@ internal class ShopsMerger {
 
             if (wroteCount > 0) {
                 sarc[key] = shopsByml.ToBinary(Endianness.Little);
-                archiveHelper.WriteFileContents(shop.ArchivePath, sarc, true, true);
+                archiveHelper.WriteFileContents(shop.ArchivePath, sarc, true, dictionaryId);
             }
         }
         

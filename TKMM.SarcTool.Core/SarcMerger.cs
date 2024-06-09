@@ -29,7 +29,7 @@ public class SarcMerger {
     /// </summary>
     /// <param name="modFolderPaths">
     ///     A list full paths to the mods to merge, in the order of lowest to highest priority. Each of these
-    ///     folders should contain the "romfs" folder.
+    ///     folders should be the path to the "romfs" folder of the mod.
     /// </param>
     /// <param name="outputPath">The full path to the location of the folder in which to place the final merged files.</param>
     /// <param name="configPath">
@@ -55,14 +55,11 @@ public class SarcMerger {
 
         this.modFolderPaths = modFolderPaths.ToArray();
 
+        // Verify that each mod folder has a romfs
         foreach (var folder in this.modFolderPaths) {
-            if (folder.Contains($"{Path.DirectorySeparatorChar}romfs"))
-                throw new ArgumentException($"{folder} cannot contain \"romfs\" - use the outer folder",
+            if (!folder.EndsWith($"{Path.DirectorySeparatorChar}romfs"))
+                throw new ArgumentException($"{folder} must be the \"romfs\" for the mod",
                                             nameof(modFolderPaths));
-            
-            var romfsPath = Path.Combine(folder, "romfs");
-            if (!Directory.Exists(romfsPath))
-                throw new ArgumentException($"{romfsPath} does not exist", nameof(modFolderPaths));
         }
 
         this.outputPath = outputPath ?? throw new ArgumentNullException(nameof(outputPath));
@@ -146,8 +143,8 @@ public class SarcMerger {
             throw new Exception("Only compressed (.zs) GDL files are supported");
         }
 
-        var fileOneBytes = archiveHelper.GetFlatFileContents(fileOne, true);
-        var fileTwoBytes = archiveHelper.GetFlatFileContents(fileTwo, true);
+        var fileOneBytes = archiveHelper.GetFlatFileContents(fileOne, true, out _);
+        var fileTwoBytes = archiveHelper.GetFlatFileContents(fileTwo, true, out _);
 
         var merger = new GameDataListMerger();
         return merger.Compare(fileOneBytes, fileTwoBytes);
@@ -227,9 +224,8 @@ public class SarcMerger {
 
             if (prefixExclusions.Any(l => Path.GetFileName(filePath).StartsWith(l)))
                 return;
-
-            var baseRomfs = Path.Combine(modFolderPath, "romfs");
-            var pathRelativeToBase = Path.GetRelativePath(baseRomfs, Path.GetDirectoryName(filePath)!);
+            
+            var pathRelativeToBase = Path.GetRelativePath(modFolderPath, Path.GetDirectoryName(filePath)!);
 
             try {
                 MergeFile(filePath, modFolderPath, pathRelativeToBase);
@@ -242,7 +238,7 @@ public class SarcMerger {
     }
 
     private void MergeGameDataList(string modPath) {
-        var gdlChangelog = Path.Combine(modPath, "romfs", "GameData", "GameDataList.gdlchangelog");
+        var gdlChangelog = Path.Combine(modPath, "GameData", "GameDataList.gdlchangelog");
 
         if (!File.Exists(gdlChangelog))
             return;
@@ -273,12 +269,12 @@ public class SarcMerger {
         var changelogBytes = File.ReadAllBytes(gdlChangelog);
 
         foreach (var gdlFile in gdlFiles) {
-            var gdlFileBytes = archiveHelper.GetFlatFileContents(gdlFile, true);
+            var gdlFileBytes = archiveHelper.GetFlatFileContents(gdlFile, true, out var dictionaryId);
             var merger = new GameDataListMerger();
 
             var resultBytes = merger.Merge(gdlFileBytes, changelogBytes);
 
-            archiveHelper.WriteFlatFileContents(gdlFile, resultBytes, true);
+            archiveHelper.WriteFlatFileContents(gdlFile, resultBytes, true, dictionaryId);
 
             Trace.TraceInformation("Merged GDL changelog into {0}", gdlFile);
         }
@@ -293,7 +289,7 @@ public class SarcMerger {
     private void MergeShops() {
       
         
-        var merger = new ShopsMerger(archiveHelper, shops.Select(l => l.ActorName).ToHashSet());
+        var merger = new ShopsMerger(archiveHelper, shops.Select(l => l.ActorName).ToHashSet(), Verbose);
         
         // This will be called if we ever need to request a shop file from the dump
         merger.GetEntryForShop = (actorName) => {
@@ -338,8 +334,8 @@ public class SarcMerger {
         var sourceIsCompressed = filePath.EndsWith(".zs");
         var targetIsCompressed = filePath.EndsWith(".zs");
 
-        var sourceFileContents = archiveHelper.GetFlatFileContents(filePath, sourceIsCompressed);
-        var targetFileContents = archiveHelper.GetFlatFileContents(targetFilePath, targetIsCompressed);
+        var sourceFileContents = archiveHelper.GetFlatFileContents(filePath, sourceIsCompressed, out _);
+        var targetFileContents = archiveHelper.GetFlatFileContents(targetFilePath, targetIsCompressed, out var dictionaryId);
 
         var fileExtension = Path.GetExtension(filePath.Replace(".zs", "")).Substring(1).ToLower();
         var handler = handlerManager.GetHandlerInstance(fileExtension);
@@ -360,7 +356,7 @@ public class SarcMerger {
                 new MergeFile(0, targetFileContents)
             });
 
-            archiveHelper.WriteFlatFileContents(targetFilePath, result, targetIsCompressed);
+            archiveHelper.WriteFlatFileContents(targetFilePath, result, targetIsCompressed, dictionaryId);
 
             TracePrint("{0}: Wrote changelog for {1} into {2}", modFolderName, Path.GetFileName(filePath), 
                                    pathRelativeToBase);
@@ -377,8 +373,7 @@ public class SarcMerger {
                                                    ext => file.EndsWith(ext, StringComparison.OrdinalIgnoreCase)));
 
         Parallel.ForEach(filesInModFolder, filePath => {
-            var baseRomfs = Path.Combine(modFolderPath, "romfs");
-            var pathRelativeToBase = Path.GetRelativePath(baseRomfs, Path.GetDirectoryName(filePath)!);
+            var pathRelativeToBase = Path.GetRelativePath(modFolderPath, Path.GetDirectoryName(filePath)!);
             TracePrint("{0}: Merging {1}", modFolderPath, filePath);
 
             try {
@@ -430,10 +425,9 @@ public class SarcMerger {
         
         // Otherwise try to reconcile and merge
         var isCompressed = archivePath.EndsWith(".zs");
-        var isPackFile = archivePath.Contains(".pack.");
 
-        Span<byte> sourceFileContents = archiveHelper.GetFileContents(archivePath, isCompressed, isPackFile);
-        Span<byte> targetFileContents = archiveHelper.GetFileContents(targetArchivePath, isCompressed, isPackFile);
+        Span<byte> sourceFileContents = archiveHelper.GetFileContents(archivePath, isCompressed, out _);
+        Span<byte> targetFileContents = archiveHelper.GetFileContents(targetArchivePath, isCompressed, out var dictionaryId);
 
         var sourceSarc = Sarc.FromBinary(sourceFileContents.ToArray());
         var targetSarc = Sarc.FromBinary(targetFileContents.ToArray());
@@ -476,7 +470,7 @@ public class SarcMerger {
             }
         }
 
-        archiveHelper.WriteFileContents(targetArchivePath, targetSarc, isCompressed, isPackFile);
+        archiveHelper.WriteFileContents(targetArchivePath, targetSarc, isCompressed, dictionaryId);
     }
     
 

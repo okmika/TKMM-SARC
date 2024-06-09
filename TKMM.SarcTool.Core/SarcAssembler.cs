@@ -22,7 +22,7 @@ public class SarcAssembler {
     /// <summary>
     /// Create an instance of the <see cref="SarcAssembler"/> class.
     /// </summary>
-    /// <param name="modPath">The full path to the mod to perform assembly on. This folder should contain the "romfs" folder.</param>
+    /// <param name="modPath">The full path to the mod to perform assembly on. This folder should be the "romfs" folder of the mod.</param>
     /// <param name="configPath">
     ///     The path to the location of the "config.json" file in standard NX Toolbox format, or
     ///     null to use the default location in local app data.
@@ -35,7 +35,7 @@ public class SarcAssembler {
     ///     dictionary is missing.
     /// </exception>
     public SarcAssembler(string modPath, string? configPath = null) {
-        if (!modPath.Contains($"{Path.DirectorySeparatorChar}romfs"))
+        if (!modPath.EndsWith($"{Path.DirectorySeparatorChar}romfs"))
             throw new ArgumentException("Path must be to the \"romfs\" folder of the mod", nameof(modPath));
         
         ArgumentNullException.ThrowIfNull(modPath);
@@ -131,11 +131,11 @@ public class SarcAssembler {
             return false;
 
         var isCompressed = archivePath.EndsWith(".zs");
-        var archiveContents = archiveHelper.GetFileContents(archivePath, isCompressed, true);
+        var archiveContents = archiveHelper.GetFileContents(archivePath, isCompressed, out var dictionaryId);
         var sarc = Sarc.FromBinary(archiveContents.ToArray());
 
         var isFileCompressed = filePath.EndsWith(".zs");
-        var fileContents = archiveHelper.GetFileContents(filePath, isFileCompressed, false);
+        var fileContents = archiveHelper.GetFileContents(filePath, isFileCompressed, out _);
 
         // Skip if the SARC doesn't contain the file already
         if (!sarc.ContainsKey(fileRelativePath)) {
@@ -144,7 +144,7 @@ public class SarcAssembler {
             sarc[fileRelativePath] = fileContents.ToArray();
         }
 
-        archiveHelper.WriteFileContents(archivePath, sarc, isCompressed, true);
+        archiveHelper.WriteFileContents(archivePath, sarc, isCompressed, dictionaryId);
         return true;
 
     }

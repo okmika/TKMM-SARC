@@ -179,11 +179,10 @@ public class SarcPackager {
     private Span<byte> HandleArchive(string archivePath, string pathRelativeToBase) {
         
         var isCompressed = archivePath.EndsWith(".zs");
-        var isPackFile = archivePath.Contains(".pack.");
 
         ReadOnlySpan<char> sarcCanonicalPath = archivePath.ToCanonical(modRomfsPath);
         ReadOnlySpan<char> sarcExtension = Path.GetExtension(sarcCanonicalPath);
-        var fileContents = archiveHelper.GetFileContents(archivePath, isCompressed, isPackFile);
+        var fileContents = archiveHelper.GetFileContents(archivePath, isCompressed, out var dictionaryId);
 
         // Identical archives don't need to be processed or copied
         if (IsArchiveIdentical(sarcCanonicalPath, fileContents, out bool isVanillaFile)) {
@@ -191,18 +190,20 @@ public class SarcPackager {
         }
 
         var sarc = Sarc.FromBinary(fileContents.ToArray());
-        var originalSarc = GetOriginalArchive(Path.GetFileName(archivePath), pathRelativeToBase, isCompressed, isPackFile);
+        var originalSarc = GetOriginalArchive(Path.GetFileName(archivePath), pathRelativeToBase, isCompressed, out _);
         var toRemove = new List<string>();
         var atLeastOneReplacement = false;
 
         foreach (var entry in sarc) {
+            var canonical = $"{sarcCanonicalPath}/{entry.Key}";
+            
             var filenameHashSource = sarcExtension switch {
                 ".pack" => entry.Key,
-                _ => $"{sarcCanonicalPath}/{entry.Key}"
+                _ => canonical
             };
             
             // Remove identical items from the SARC
-            if (IsFileIdentical(filenameHashSource, entry.Value) && IsInVanillaArchive(filenameHashSource, archivePath)) {
+            if (IsFileIdentical(filenameHashSource, entry.Value) && IsInVanillaArchive(canonical, entry.Key, archivePath)) {
                 toRemove.Add(entry.Key);
             } else if (originalSarc != null) {
                 // Perform merge against the original file if we have an archive in the dump
@@ -260,8 +261,7 @@ public class SarcPackager {
         if (isCompressed) {
             using var memoryStream = new MemoryStream();
             sarc.Write(memoryStream);
-            outputContents = compression.Compress(memoryStream.ToArray(),
-                                                  isPackFile ? CompressionType.Pack : CompressionType.Common);
+            outputContents = compression.Compress(memoryStream.ToArray(), dictionaryId);
         } else {
             using var memoryStream = new MemoryStream();
             sarc.Write(memoryStream);
@@ -304,8 +304,8 @@ public class SarcPackager {
 
                 var isVanillaCompressed = vanillaFilePath.EndsWith(".zs");
 
-                var vanillaFile = archiveHelper.GetFlatFileContents(vanillaFilePath, isVanillaCompressed);
-                var modFile = archiveHelper.GetFlatFileContents(gdlFile, isCompressed);
+                var vanillaFile = archiveHelper.GetFlatFileContents(vanillaFilePath, isVanillaCompressed, out _);
+                var modFile = archiveHelper.GetFlatFileContents(gdlFile, isCompressed, out _);
 
                 var changelog = gdlMerger.Package(vanillaFile, modFile);
 
@@ -330,7 +330,7 @@ public class SarcPackager {
                 throw;
             }
 
-            }
+        }
 
     }
 
@@ -387,8 +387,8 @@ public class SarcPackager {
         if (isCompressed && !targetFilePath.EndsWith(".zs"))
             targetFilePath += ".zs";
 
-        var vanillaFileContents = archiveHelper.GetFlatFileContents(vanillaFilePath, isCompressed);
-        var targetFileContents = archiveHelper.GetFlatFileContents(filePath, isCompressed);
+        var vanillaFileContents = archiveHelper.GetFlatFileContents(vanillaFilePath, isCompressed, out _);
+        var targetFileContents = archiveHelper.GetFlatFileContents(filePath, isCompressed, out var dictionaryId);
 
         var fileExtension = Path.GetExtension(filePath.Replace(".zs", "")).Substring(1).ToLower();
         var handler = handlerManager.GetHandlerInstance(fileExtension);
@@ -408,7 +408,7 @@ public class SarcPackager {
                 new MergeFile(1, targetFileContents)
             }, out _);
             
-            archiveHelper.WriteFlatFileContents(targetFilePath, result, isCompressed);
+            archiveHelper.WriteFlatFileContents(targetFilePath, result, isCompressed, dictionaryId);
 
             TracePrint("Wrote changelog for {0}", filePath);
         }
@@ -426,11 +426,15 @@ public class SarcPackager {
         return false;
     }
 
-    private bool IsInVanillaArchive(string canonical, string archivePath) {
+    private bool IsInVanillaArchive(string canonical, string key, string archivePath) {
         var relativeArchivePath = archiveHelper.GetRelativePath(archivePath, modRomfsPath);
 
-        if (archiveCache.TryGetValue(canonical, out var cacheResult)) {
-            return cacheResult.Equals(relativeArchivePath, StringComparison.OrdinalIgnoreCase);
+        if (archiveCache.TryGetValue(canonical, out var canonicalResult)) {
+            return canonicalResult.Equals(relativeArchivePath, StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (archiveCache.TryGetValue(key, out var keyResult)) {
+            return keyResult.Equals(relativeArchivePath, StringComparison.OrdinalIgnoreCase);
         }
 
         return false;
@@ -447,7 +451,7 @@ public class SarcPackager {
         return false;
     }
 
-    private Sarc? GetOriginalArchive(string archiveFile, string pathRelativeToBase, bool isCompressed, bool isPackFile) {
+    private Sarc? GetOriginalArchive(string archiveFile, string pathRelativeToBase, bool isCompressed, out int dictionaryId) {
 
         // Get rid of /romfs/ in the path
         var directoryChar = Path.DirectorySeparatorChar;
@@ -456,22 +460,15 @@ public class SarcPackager {
         
         var archivePath = Path.Combine(config.GamePath, pathRelativeToBase, archiveFile);
 
+        dictionaryId = -1;
+
         if (!File.Exists(archivePath))
             return null;
         
         Span<byte> fileContents;
         if (isCompressed) {
-            // Need to decompress the file first
-            var type = CompressionType.Common;
-
-            // Change compression type
-            if (isPackFile)
-                type = CompressionType.Pack;
-            else if (archivePath.Contains("bcett", StringComparison.OrdinalIgnoreCase))
-                type = CompressionType.Bcett;
-            
             var compressedContents = File.ReadAllBytes(archivePath).AsSpan();
-            fileContents = compression.Decompress(compressedContents, type);
+            fileContents = compression.Decompress(compressedContents, out dictionaryId);
         } else {
             fileContents = File.ReadAllBytes(archivePath).AsSpan();
         }

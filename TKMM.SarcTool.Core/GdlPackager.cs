@@ -77,8 +77,8 @@ public class GdlPackager {
 
         var isVanillaCompressed = vanillaFilePath.EndsWith(".zs");
 
-        var vanillaFile = archiveHelper.GetFlatFileContents(vanillaFilePath, isVanillaCompressed);
-        var modFile = archiveHelper.GetFlatFileContents(gdlPath, isCompressed);
+        var vanillaFile = archiveHelper.GetFlatFileContents(vanillaFilePath, isVanillaCompressed, out _);
+        var modFile = archiveHelper.GetFlatFileContents(gdlPath, isCompressed, out _);
 
         var changelog = gdlMerger.Package(vanillaFile, modFile);
 
@@ -129,12 +129,12 @@ public class GdlPackager {
         var changelogBytes = File.ReadAllBytes(changelogPath);
 
         foreach (var gdlFile in gdlFiles) {
-            var gdlFileBytes = archiveHelper.GetFlatFileContents(gdlFile, true);
+            var gdlFileBytes = archiveHelper.GetFlatFileContents(gdlFile, true, out var dictionaryId);
             var merger = new GameDataListMerger();
 
             var resultBytes = merger.Merge(gdlFileBytes, changelogBytes);
 
-            archiveHelper.WriteFlatFileContents(gdlFile, resultBytes, true);
+            archiveHelper.WriteFlatFileContents(gdlFile, resultBytes, true, dictionaryId);
         }
     }
     
