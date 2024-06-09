@@ -195,13 +195,15 @@ public class SarcPackager {
         var atLeastOneReplacement = false;
 
         foreach (var entry in sarc) {
+            var canonical = $"{sarcCanonicalPath}/{entry.Key}";
+            
             var filenameHashSource = sarcExtension switch {
                 ".pack" => entry.Key,
-                _ => $"{sarcCanonicalPath}/{entry.Key}"
+                _ => canonical
             };
             
             // Remove identical items from the SARC
-            if (IsFileIdentical(filenameHashSource, entry.Value) && IsInVanillaArchive(filenameHashSource, archivePath)) {
+            if (IsFileIdentical(filenameHashSource, entry.Value) && IsInVanillaArchive(canonical, entry.Key, archivePath)) {
                 toRemove.Add(entry.Key);
             } else if (originalSarc != null) {
                 // Perform merge against the original file if we have an archive in the dump
@@ -424,11 +426,15 @@ public class SarcPackager {
         return false;
     }
 
-    private bool IsInVanillaArchive(string canonical, string archivePath) {
+    private bool IsInVanillaArchive(string canonical, string key, string archivePath) {
         var relativeArchivePath = archiveHelper.GetRelativePath(archivePath, modRomfsPath);
 
-        if (archiveCache.TryGetValue(canonical, out var cacheResult)) {
-            return cacheResult.Equals(relativeArchivePath, StringComparison.OrdinalIgnoreCase);
+        if (archiveCache.TryGetValue(canonical, out var canonicalResult)) {
+            return canonicalResult.Equals(relativeArchivePath, StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (archiveCache.TryGetValue(key, out var keyResult)) {
+            return keyResult.Equals(relativeArchivePath, StringComparison.OrdinalIgnoreCase);
         }
 
         return false;
