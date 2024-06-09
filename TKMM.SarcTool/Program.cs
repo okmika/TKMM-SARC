@@ -167,7 +167,7 @@ public static class Program {
             var timer = new Stopwatch();
             timer.Start();
 
-            var merger = new SarcMerger(modsList.Select(x => Path.Combine(basePath, x)), outputPath, configPath);
+            var merger = new SarcMerger(modsList.Select(x => Path.Combine(basePath, x, "romfs")), outputPath, configPath);
             merger.Verbose = verbose;
             merger.Merge();
 
