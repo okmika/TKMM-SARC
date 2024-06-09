@@ -10,6 +10,8 @@ internal class ZsCompression {
     private Compressor packCompressor = new(CompressionLevel);
 
     private Decompressor defaultDecompressor = new();
+    private Compressor defaultCompressor = new();
+    
     private Decompressor commonDecompressor = new();
     private Decompressor bcettDecompressor = new();
     private Decompressor packDecompressor = new();
@@ -39,6 +41,8 @@ internal class ZsCompression {
                 return bcettDecompressor.Unwrap(compressed);
             else if (type == CompressionType.Pack)
                 return packDecompressor.Unwrap(compressed);
+            else if (type == CompressionType.Default)
+                return defaultDecompressor.Unwrap(compressed);
 
             throw new Exception("Invalid compression type");
         }
@@ -52,6 +56,8 @@ internal class ZsCompression {
                 return bcettCompressor.Wrap(data);
             else if (type == CompressionType.Pack)
                 return packCompressor.Wrap(data);
+            else if (type == CompressionType.Default)
+                return defaultCompressor.Wrap(data);
 
             throw new Exception("Invalid compression type");
         }
@@ -61,5 +67,6 @@ internal class ZsCompression {
 internal enum CompressionType {
     Common,
     Bcett,
-    Pack
+    Pack,
+    Default
 }

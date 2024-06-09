@@ -94,6 +94,8 @@ internal class ArchiveHelper {
             // Change compression type
             if (filePath.Contains("bcett", StringComparison.OrdinalIgnoreCase))
                 type = CompressionType.Bcett;
+            else if (filePath.Contains("Product.Nin_NX_NVN.HeapDef", StringComparison.OrdinalIgnoreCase))
+                type = CompressionType.Default;
 
             var compressedContents = File.ReadAllBytes(filePath).AsSpan();
             sourceFileContents = compression.Decompress(compressedContents, type);
@@ -114,6 +116,8 @@ internal class ArchiveHelper {
             // Change compression type
             if (filePath.Contains("bcett", StringComparison.OrdinalIgnoreCase))
                 type = CompressionType.Bcett;
+            else if (filePath.Contains("Product.Nin_NX_NVN.HeapDef", StringComparison.OrdinalIgnoreCase))
+                type = CompressionType.Default;
 
             File.WriteAllBytes(filePath,
                                compression.Compress(contents.ToArray(), type).ToArray());
