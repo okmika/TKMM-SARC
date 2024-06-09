@@ -10,31 +10,23 @@ internal class ArchiveHelper {
         this.compression = compression;
     }
 
-    public Span<byte> GetFileContents(string archivePath, bool isCompressed, bool isPackFile) {
+    public Span<byte> GetFileContents(string archivePath, bool isCompressed, out int dictionaryId) {
         if (compression == null)
             throw new Exception("Compression not loaded");
 
         Span<byte> sourceFileContents;
         if (isCompressed) {
-            // Need to decompress the file first
-            var type = CompressionType.Common;
-
-            // Change compression type
-            if (isPackFile)
-                type = CompressionType.Pack;
-            else if (archivePath.Contains("bcett", StringComparison.OrdinalIgnoreCase))
-                type = CompressionType.Bcett;
-
             var compressedContents = File.ReadAllBytes(archivePath).AsSpan();
-            sourceFileContents = compression.Decompress(compressedContents, type);
+            sourceFileContents = compression.Decompress(compressedContents, out dictionaryId);
         } else {
             sourceFileContents = File.ReadAllBytes(archivePath).AsSpan();
+            dictionaryId = -1;
         }
 
         return sourceFileContents;
     }
 
-    public void WriteFileContents(string archivePath, Sarc sarc, bool isCompressed, bool isPackFile) {
+    public void WriteFileContents(string archivePath, Sarc sarc, bool isCompressed, int dictionaryId) {
         if (compression == null)
             throw new Exception("Compression not loaded");
 
@@ -42,15 +34,7 @@ internal class ArchiveHelper {
         sarc.Write(memoryStream);
 
         if (isCompressed) {
-            var type = CompressionType.Common;
-
-            // Change compression type
-            if (isPackFile)
-                type = CompressionType.Pack;
-            else if (archivePath.Contains("bcett", StringComparison.OrdinalIgnoreCase))
-                type = CompressionType.Bcett;
-
-            File.WriteAllBytes(archivePath, compression.Compress(memoryStream.ToArray(), type).ToArray());
+            File.WriteAllBytes(archivePath, compression.Compress(memoryStream.ToArray(), dictionaryId).ToArray());
         } else {
             File.WriteAllBytes(archivePath, memoryStream.ToArray());
         }
@@ -82,45 +66,29 @@ internal class ArchiveHelper {
             return Path.Combine(basePath, relativePath);
     }
 
-    public Memory<byte> GetFlatFileContents(string filePath, bool isCompressed) {
+    public Memory<byte> GetFlatFileContents(string filePath, bool isCompressed, out int dictionaryId) {
         if (compression == null)
             throw new Exception("Compression not loaded");
 
         Span<byte> sourceFileContents;
         if (isCompressed) {
-            // Need to decompress the file first
-            var type = CompressionType.Common;
-
-            // Change compression type
-            if (filePath.Contains("bcett", StringComparison.OrdinalIgnoreCase))
-                type = CompressionType.Bcett;
-            else if (filePath.Contains("Product.Nin_NX_NVN.HeapDef", StringComparison.OrdinalIgnoreCase))
-                type = CompressionType.Default;
-
             var compressedContents = File.ReadAllBytes(filePath).AsSpan();
-            sourceFileContents = compression.Decompress(compressedContents, type);
+            sourceFileContents = compression.Decompress(compressedContents, out dictionaryId);
         } else {
             sourceFileContents = File.ReadAllBytes(filePath).AsSpan();
+            dictionaryId = -1;
         }
 
         return new Memory<byte>(sourceFileContents.ToArray());
     }
 
-    public void WriteFlatFileContents(string filePath, ReadOnlyMemory<byte> contents, bool isCompressed) {
+    public void WriteFlatFileContents(string filePath, ReadOnlyMemory<byte> contents, bool isCompressed, int dictionaryId) {
         if (compression == null)
             throw new Exception("Compression not loaded");
 
         if (isCompressed) {
-            var type = CompressionType.Common;
-
-            // Change compression type
-            if (filePath.Contains("bcett", StringComparison.OrdinalIgnoreCase))
-                type = CompressionType.Bcett;
-            else if (filePath.Contains("Product.Nin_NX_NVN.HeapDef", StringComparison.OrdinalIgnoreCase))
-                type = CompressionType.Default;
-
             File.WriteAllBytes(filePath,
-                               compression.Compress(contents.ToArray(), type).ToArray());
+                               compression.Compress(contents.ToArray(), dictionaryId).ToArray());
         } else {
             File.WriteAllBytes(filePath, contents.ToArray());
         }

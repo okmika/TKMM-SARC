@@ -143,8 +143,8 @@ public class SarcMerger {
             throw new Exception("Only compressed (.zs) GDL files are supported");
         }
 
-        var fileOneBytes = archiveHelper.GetFlatFileContents(fileOne, true);
-        var fileTwoBytes = archiveHelper.GetFlatFileContents(fileTwo, true);
+        var fileOneBytes = archiveHelper.GetFlatFileContents(fileOne, true, out _);
+        var fileTwoBytes = archiveHelper.GetFlatFileContents(fileTwo, true, out _);
 
         var merger = new GameDataListMerger();
         return merger.Compare(fileOneBytes, fileTwoBytes);
@@ -269,12 +269,12 @@ public class SarcMerger {
         var changelogBytes = File.ReadAllBytes(gdlChangelog);
 
         foreach (var gdlFile in gdlFiles) {
-            var gdlFileBytes = archiveHelper.GetFlatFileContents(gdlFile, true);
+            var gdlFileBytes = archiveHelper.GetFlatFileContents(gdlFile, true, out var dictionaryId);
             var merger = new GameDataListMerger();
 
             var resultBytes = merger.Merge(gdlFileBytes, changelogBytes);
 
-            archiveHelper.WriteFlatFileContents(gdlFile, resultBytes, true);
+            archiveHelper.WriteFlatFileContents(gdlFile, resultBytes, true, dictionaryId);
 
             Trace.TraceInformation("Merged GDL changelog into {0}", gdlFile);
         }
@@ -334,8 +334,8 @@ public class SarcMerger {
         var sourceIsCompressed = filePath.EndsWith(".zs");
         var targetIsCompressed = filePath.EndsWith(".zs");
 
-        var sourceFileContents = archiveHelper.GetFlatFileContents(filePath, sourceIsCompressed);
-        var targetFileContents = archiveHelper.GetFlatFileContents(targetFilePath, targetIsCompressed);
+        var sourceFileContents = archiveHelper.GetFlatFileContents(filePath, sourceIsCompressed, out _);
+        var targetFileContents = archiveHelper.GetFlatFileContents(targetFilePath, targetIsCompressed, out var dictionaryId);
 
         var fileExtension = Path.GetExtension(filePath.Replace(".zs", "")).Substring(1).ToLower();
         var handler = handlerManager.GetHandlerInstance(fileExtension);
@@ -356,7 +356,7 @@ public class SarcMerger {
                 new MergeFile(0, targetFileContents)
             });
 
-            archiveHelper.WriteFlatFileContents(targetFilePath, result, targetIsCompressed);
+            archiveHelper.WriteFlatFileContents(targetFilePath, result, targetIsCompressed, dictionaryId);
 
             TracePrint("{0}: Wrote changelog for {1} into {2}", modFolderName, Path.GetFileName(filePath), 
                                    pathRelativeToBase);
@@ -425,10 +425,9 @@ public class SarcMerger {
         
         // Otherwise try to reconcile and merge
         var isCompressed = archivePath.EndsWith(".zs");
-        var isPackFile = archivePath.Contains(".pack.");
 
-        Span<byte> sourceFileContents = archiveHelper.GetFileContents(archivePath, isCompressed, isPackFile);
-        Span<byte> targetFileContents = archiveHelper.GetFileContents(targetArchivePath, isCompressed, isPackFile);
+        Span<byte> sourceFileContents = archiveHelper.GetFileContents(archivePath, isCompressed, out _);
+        Span<byte> targetFileContents = archiveHelper.GetFileContents(targetArchivePath, isCompressed, out var dictionaryId);
 
         var sourceSarc = Sarc.FromBinary(sourceFileContents.ToArray());
         var targetSarc = Sarc.FromBinary(targetFileContents.ToArray());
@@ -471,7 +470,7 @@ public class SarcMerger {
             }
         }
 
-        archiveHelper.WriteFileContents(targetArchivePath, targetSarc, isCompressed, isPackFile);
+        archiveHelper.WriteFileContents(targetArchivePath, targetSarc, isCompressed, dictionaryId);
     }
     
 

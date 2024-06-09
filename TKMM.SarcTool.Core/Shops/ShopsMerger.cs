@@ -37,7 +37,7 @@ internal class ShopsMerger {
             if (verbose)
                 Trace.TraceInformation("Processing shop for {0}", shop.Actor);
             
-            var sarcBin = archiveHelper.GetFileContents(shop.ArchivePath, true, true).ToArray();
+            var sarcBin = archiveHelper.GetFileContents(shop.ArchivePath, true, out var dictionaryId).ToArray();
             var sarc = Sarc.FromBinary(sarcBin);
             var key = $"Component/ShopParam/{shop.Actor}.game__component__ShopParam.bgyml";
 
@@ -66,7 +66,7 @@ internal class ShopsMerger {
                 Trace.TraceInformation("{0} shop overflowed {1}", shop.Actor, goodsToOverflow.Count);
                 
                 sarc[key] = shopsByml.ToBinary(Endianness.Little);
-                archiveHelper.WriteFileContents(shop.ArchivePath, sarc, true, true);
+                archiveHelper.WriteFileContents(shop.ArchivePath, sarc, true, dictionaryId);
             }
             
             var wroteCount = 0;
@@ -93,7 +93,7 @@ internal class ShopsMerger {
 
             if (wroteCount > 0) {
                 sarc[key] = shopsByml.ToBinary(Endianness.Little);
-                archiveHelper.WriteFileContents(shop.ArchivePath, sarc, true, true);
+                archiveHelper.WriteFileContents(shop.ArchivePath, sarc, true, dictionaryId);
             }
         }
         

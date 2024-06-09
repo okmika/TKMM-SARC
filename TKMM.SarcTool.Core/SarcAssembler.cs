@@ -131,11 +131,11 @@ public class SarcAssembler {
             return false;
 
         var isCompressed = archivePath.EndsWith(".zs");
-        var archiveContents = archiveHelper.GetFileContents(archivePath, isCompressed, true);
+        var archiveContents = archiveHelper.GetFileContents(archivePath, isCompressed, out var dictionaryId);
         var sarc = Sarc.FromBinary(archiveContents.ToArray());
 
         var isFileCompressed = filePath.EndsWith(".zs");
-        var fileContents = archiveHelper.GetFileContents(filePath, isFileCompressed, false);
+        var fileContents = archiveHelper.GetFileContents(filePath, isFileCompressed, out _);
 
         // Skip if the SARC doesn't contain the file already
         if (!sarc.ContainsKey(fileRelativePath)) {
@@ -144,7 +144,7 @@ public class SarcAssembler {
             sarc[fileRelativePath] = fileContents.ToArray();
         }
 
-        archiveHelper.WriteFileContents(archivePath, sarc, isCompressed, true);
+        archiveHelper.WriteFileContents(archivePath, sarc, isCompressed, dictionaryId);
         return true;
 
     }
