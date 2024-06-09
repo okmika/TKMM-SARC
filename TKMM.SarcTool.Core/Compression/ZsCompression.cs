@@ -12,6 +12,7 @@ internal class ZsCompression {
     public ZsCompression(string packFilePath) {
         compressor = new Zstd();
         compressor.LoadDictionaries(packFilePath);
+        compressor.CompressionLevel = 7;
     }
 
     public Span<byte> Decompress(ReadOnlySpan<byte> compressed, out int dictionaryId) {
