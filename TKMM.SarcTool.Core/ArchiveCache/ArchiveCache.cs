@@ -34,10 +34,10 @@ internal class ArchiveCache {
                 return;
 
             if (globalArchiveMappings != null) {
-                Trace.TraceInformation("Using cached archivemappings.bin");
+                Trace.TraceInformation("Using cached archive mappings");
                 this.archiveMappings = globalArchiveMappings;
             } else {
-                Trace.TraceInformation("Need to load archivemappings.bin");
+                Trace.TraceInformation("Loading archived mappings");
                 var archiveCachePath =
                     Path.Combine(Path.GetDirectoryName(configPath) ?? string.Empty, "archivemappings.bin");
 
