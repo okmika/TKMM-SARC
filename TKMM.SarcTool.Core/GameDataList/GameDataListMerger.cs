@@ -761,7 +761,7 @@ internal class GameDataListMerger {
         if (item.TryGetValue("RawValues", out var rawValues)) {
             // Work-around for bug in NX Editor that caused these things to be integers instead of strings
             if (rawValues.GetArray().Any(l => l.Type == BymlNodeType.Int)) {
-                Trace.TraceWarning($"In {table}, {change.Hash32} RawValues is expected to Strings but are Int32s instead - fixing. THIS WAS AN NX EDITOR BUG SO THE MOD CREATOR SHOULD FIX THIS MANUALLY!");
+                Trace.TraceWarning($"In {table}, {change.Hash32} RawValues is expected to be Strings but are Int32s instead - fixing. THIS WAS AN NX EDITOR BUG SO THE MOD CREATOR SHOULD FIX THIS MANUALLY!");
                 change.RawValues = rawValues.GetArray().Select(l => {
                     if (l.Type == BymlNodeType.String)
                         return l.GetString();
