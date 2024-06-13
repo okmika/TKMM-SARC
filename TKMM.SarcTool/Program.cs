@@ -10,7 +10,7 @@ public static class Program {
 
     public static int Main(string[] args) {
 
-        Trace.Listeners.Add(new ConsoleTraceListener(true));
+        Trace.Listeners.Add(new ConsoleTraceListener(false));
         PrintBanner();
         
         var rootCommand = GetCommandLine();
@@ -219,11 +219,11 @@ public static class Program {
     
     private static void PrintBanner() {
         var assembly = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
-        var version = $"{assembly.GetName().Version?.Major}.{assembly.GetName().Version?.Minor}.{assembly.GetName().Version?.Revision}";
+        var version = $"{assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "Unknown Version"}";
         
         AnsiConsole.Write(new FigletText("SARC Tool"));
         AnsiConsole.MarkupInterpolated(
-            $"[bold]TKMM SARC Tool v. {version}\nhttps://github.com/okmika/TKMM-SARC[/]\n\n");
+            $"[bold][yellow]TKMM SARC Tool v. {version}\nhttps://github.com/okmika/TKMM-SARC[/][/]\n\n");
         
     }
 
