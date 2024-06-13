@@ -287,6 +287,8 @@ public class SarcPackager {
            Trace.TraceInformation("No GDL file to make a changelog for.");
            return;
        }
+
+       var atLeastOneVanillaGdlFileFound = false;
        
        foreach (var gdlFile in files) {
            
@@ -299,8 +301,14 @@ public class SarcPackager {
                 var vanillaFilePath = Path.Combine(config.GamePath, "GameData", Path.GetFileName(gdlFile));
 
                 if (!File.Exists(vanillaFilePath)) {
-                    throw new Exception("Failed to find vanilla GameDataList file");
+                    Trace.TraceWarning($"Couldn't find vanilla GDL file: {vanillaFilePath}");
+                    continue;
+                } else {
+                    Trace.TraceInformation($"Found vanilla GDL file {vanillaFilePath}");
                 }
+
+                // We've found at least one vanilla GDL file
+                atLeastOneVanillaGdlFileFound = true;
 
                 var isVanillaCompressed = vanillaFilePath.EndsWith(".zs");
 
@@ -331,6 +339,9 @@ public class SarcPackager {
             }
 
         }
+
+        if (!atLeastOneVanillaGdlFileFound)
+            throw new Exception("There are GDL files to process, but we didn't find a corresponding vanilla GDL in your dump to try and generate a changelog against. Check your dump and make sure you have a GDL file for the version of the changelog you're trying to package.");
 
     }
 
