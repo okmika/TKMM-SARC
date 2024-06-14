@@ -72,7 +72,7 @@ public class SarcPackager {
             "totk", "Config.json");
         
         checksumPath ??= Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                                      "Totk", "checksums.bin");
+                                      "totk", "checksums.bin");
 
         checkVersions ??= new[] {100, 110, 111, 112, 120, 121};
 
