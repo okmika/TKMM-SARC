@@ -42,7 +42,7 @@ public class SarcAssembler {
         
         configPath ??= Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Totk", "config.json");
+            "totk", "Config.json");
 
         if (!File.Exists(configPath))
             throw new Exception($"{configPath} not found");
