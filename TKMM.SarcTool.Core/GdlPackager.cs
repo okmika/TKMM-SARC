@@ -26,7 +26,7 @@ public class GdlPackager {
     public GdlPackager(string? configPath = null) {
         configPath ??= Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Totk", "config.json");
+            "totk", "Config.json");
 
         if (!File.Exists(configPath))
             throw new Exception($"{configPath} not found");

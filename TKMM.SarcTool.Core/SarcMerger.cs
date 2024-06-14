@@ -69,7 +69,7 @@ public class SarcMerger {
         
         configPath ??= Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Totk", "config.json");
+            "totk", "Config.json");
 
         shopsPath ??= Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "tkmm",
                                      "shops.json");

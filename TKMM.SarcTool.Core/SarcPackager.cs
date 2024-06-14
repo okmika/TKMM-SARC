@@ -69,7 +69,7 @@ public class SarcPackager {
         
         configPath ??= Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Totk", "config.json");
+            "totk", "Config.json");
         
         checksumPath ??= Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                                       "Totk", "checksums.bin");
