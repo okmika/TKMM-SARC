@@ -736,7 +736,7 @@ internal class GameDataListMerger {
             change.Hash64 = item["Hash"].GetUInt64();
         else
             change.Hash32 = item["Hash"].GetUInt32();
-
+        
         if (item.TryGetValue("ResetTypeValue", out var resetTypeValue))
             change.ResetTypeValue = resetTypeValue.GetInt();
         if (item.TryGetValue("SaveFileIndex", out var saveFileIndex))
@@ -759,14 +759,22 @@ internal class GameDataListMerger {
         }
 
         if (item.TryGetValue("RawValues", out var rawValues)) {
-            // Work-around for bug in NX Editor that caused these things to be integers instead of strings
-            if (rawValues.GetArray().Any(l => l.Type == BymlNodeType.Int)) {
-                Trace.TraceWarning($"In {table}, {change.Hash32} RawValues is expected to be Strings but are Int32s instead - fixing. THIS WAS AN NX EDITOR BUG SO THE MOD CREATOR SHOULD FIX THIS MANUALLY!");
+            // Work-around for bug in NX Editor that caused these things to be integers or bools instead of strings
+            if (rawValues.GetArray().Any(l => l.Type != BymlNodeType.String)) {
+                var didShowWarning = false;
                 change.RawValues = rawValues.GetArray().Select(l => {
-                    if (l.Type == BymlNodeType.String)
+                    if (l.Type == BymlNodeType.String) {
                         return l.GetString();
-                    else
+                    } else if (l.Type == BymlNodeType.Int) {
+                        if (!didShowWarning) {
+                            Trace.TraceWarning($"In {table}, {change.Hash32} RawValues contains Int32s instead of Strings - fixing. THIS WAS AN NX EDITOR BUG SO THE MOD CREATOR SHOULD FIX THIS MANUALLY!");
+                            didShowWarning = true;
+                        }
+
                         return l.GetInt().ToString("D2");
+                    } else {
+                        throw new Exception($"In {table}, {change.Hash32} RawValues contains a {l.Type} value and not a String - this is invalid and cannot be fixed automatically. Ask the mod author to fix this.");
+                    }
                 }).ToArray();
             } else {
                 change.RawValues = rawValues.GetArray().Select(l => l.GetString()).ToArray();
