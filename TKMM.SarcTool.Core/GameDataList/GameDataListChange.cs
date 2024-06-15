@@ -465,5 +465,6 @@ internal enum GameDataListTable : byte {
     WString64,
     WString64Array,
     Bool64bitKey,
-    Struct
+    Struct,
+    BoolExp
 }
