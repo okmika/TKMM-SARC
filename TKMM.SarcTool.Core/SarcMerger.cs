@@ -3,6 +3,7 @@ using System.Text.Json;
 using SarcLibrary;
 using TKMM.SarcTool.Core.Model;
 using TotkCommon;
+using TotkCommon.Extensions;
 
 namespace TKMM.SarcTool.Core;
 
@@ -314,7 +315,7 @@ public class SarcMerger {
     }
 
     private void MergeFile(string filePath, string modFolderName, string pathRelativeToBase) {
-        var targetFilePath = Path.Combine(outputPath, pathRelativeToBase, Path.GetFileName(filePath));
+        var targetFilePath = GetOutputFile(modFolderName, pathRelativeToBase, filePath);
 
         // If the output doesn't even exist just copy it over and we're done
         if (!File.Exists(targetFilePath)) {
@@ -408,7 +409,7 @@ public class SarcMerger {
 
     private void MergeArchive(string modFolderPath, string archivePath, string pathRelativeToBase) {
         // If the output doesn't even exist just copy it over and we're done
-        var targetArchivePath = Path.Combine(outputPath, pathRelativeToBase, Path.GetFileName(archivePath));
+        var targetArchivePath = GetOutputFile(modFolderPath, pathRelativeToBase, archivePath);
 
         if (!File.Exists(targetArchivePath)) {
             if (!Directory.Exists(Path.GetDirectoryName(targetArchivePath)))
@@ -491,5 +492,13 @@ public class SarcMerger {
             Trace.TraceInformation(message, elements);
     }
 
-    
+    private string GetOutputFile(ReadOnlySpan<char> modFolder, string pathRelativeToBase, string filePath)
+    {
+        var canonicalArchivePath = filePath.ToCanonical(modFolder, out RomfsFileAttributes fileAttributes).ToString();
+        return Totk.AddressTable?.GetValueOrDefault(canonicalArchivePath) switch {
+            string versionedArchiveName => Path.Combine(outputPath, versionedArchiveName) + (fileAttributes.HasFlag(RomfsFileAttributes.HasZsExtension) ? ".zs" : string.Empty),
+            _ => Path.Combine(outputPath, pathRelativeToBase, Path.GetFileName(filePath))
+        };
+    }
+
 }
