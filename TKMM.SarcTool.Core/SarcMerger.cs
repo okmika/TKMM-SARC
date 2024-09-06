@@ -316,6 +316,9 @@ public class SarcMerger {
 
     private void MergeFile(string filePath, string modFolderName, string pathRelativeToBase) {
         var targetFilePath = GetOutputFile(modFolderName, pathRelativeToBase, filePath);
+        var vanillaArchivePath = GetAccurateFilePath(config.GamePath, modFolderName, pathRelativeToBase, filePath);
+
+        var isVanillaArchive = File.Exists(vanillaArchivePath);
 
         // If the output doesn't even exist just copy it over and we're done
         if (!File.Exists(targetFilePath)) {
@@ -341,7 +344,7 @@ public class SarcMerger {
         var fileExtension = Path.GetExtension(filePath.Replace(".zs", "")).Substring(1).ToLower();
         var handler = handlerManager.GetHandlerInstance(fileExtension);
 
-        if (handler == null) {
+        if (handler == null || !isVanillaArchive) {
             TracePrint("{0}: Wrote {1} in {2} by priority", modFolderName,
                                Path.GetFileName(filePath), pathRelativeToBase);
             
@@ -410,6 +413,9 @@ public class SarcMerger {
     private void MergeArchive(string modFolderPath, string archivePath, string pathRelativeToBase) {
         // If the output doesn't even exist just copy it over and we're done
         var targetArchivePath = GetOutputFile(modFolderPath, pathRelativeToBase, archivePath);
+        var vanillaArchivePath = GetAccurateFilePath(config.GamePath, modFolderPath, pathRelativeToBase, archivePath);
+
+        var isVanillaArchive = File.Exists(vanillaArchivePath);
 
         if (!File.Exists(targetArchivePath)) {
             if (!Directory.Exists(Path.GetDirectoryName(targetArchivePath)))
@@ -433,6 +439,16 @@ public class SarcMerger {
         var sourceSarc = Sarc.FromBinary(sourceFileContents.ToArray());
         var targetSarc = Sarc.FromBinary(targetFileContents.ToArray());
 
+        // Inject files and overwrite duplicates
+        if (!isVanillaArchive) {
+            foreach (var (sarcFile, data) in sourceSarc) {
+                targetSarc[sarcFile] = data;
+            }
+
+            goto WriteResult;
+        }
+
+        // Merge with target
         foreach (var entry in sourceSarc) {
             if (!targetSarc.ContainsKey(entry.Key)) {
                 // If the archive doesn't have the file, add it
@@ -471,6 +487,7 @@ public class SarcMerger {
             }
         }
 
+    WriteResult:
         archiveHelper.WriteFileContents(targetArchivePath, targetSarc, isCompressed, dictionaryId);
     }
     
@@ -494,10 +511,15 @@ public class SarcMerger {
 
     private string GetOutputFile(ReadOnlySpan<char> modFolder, string pathRelativeToBase, string filePath)
     {
+        return GetAccurateFilePath(outputPath, modFolder, pathRelativeToBase, filePath);
+    }
+
+    private string GetAccurateFilePath(string targetFolder, ReadOnlySpan<char> modFolder, string pathRelativeToBase, string filePath)
+    {
         var canonicalArchivePath = filePath.ToCanonical(modFolder, out RomfsFileAttributes fileAttributes).ToString();
         return Totk.AddressTable?.GetValueOrDefault(canonicalArchivePath) switch {
             string versionedArchiveName => Path.Combine(outputPath, versionedArchiveName) + (fileAttributes.HasFlag(RomfsFileAttributes.HasZsExtension) ? ".zs" : string.Empty),
-            _ => Path.Combine(outputPath, pathRelativeToBase, Path.GetFileName(filePath))
+            _ => Path.Combine(targetFolder, pathRelativeToBase, Path.GetFileName(filePath))
         };
     }
 
